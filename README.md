@@ -1,2 +1,2 @@
-# RapSimpleCs
+# RapShortCs
 Cs chess engine
