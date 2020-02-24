@@ -131,7 +131,6 @@ namespace RapShortCs
 			int g_passing = 0;
 			int g_move50 = 0;
 			int g_moveNumber = 0;
-			int g_phase = 32;
 			int g_totalNodes = 0;
 			bool g_inCheck = false;
 			int g_nodeout = 0;
@@ -157,18 +156,7 @@ namespace RapShortCs
 			int bsDepth = 0;
 			string bsFm = "";
 			string bsPv = "";
-			int[,] tmpMaterial = new int[7, 2] { { 0, 0 }, { 171, 240 }, { 764, 848 }, { 826, 891 }, { 1282, 1373 }, { 2526, 2646 }, { 0xffff, 0xffff } };
-			int[,] arrMaterial = new int[33, 7];
-			int[,,] tmpMobility = new int[7, 28, 2] {
-			{ { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
-			{ { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
-			{ {-75,-76 }, {-57,-54 }, {-9,-28 }, {-2,-10 }, {6,5 }, {14,12 }, {22, 26 }, { 29,29 }, { 36, 29 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
-			{ { -48,-59 }, {-20,-23 }, {16, -3 }, {26, 13 }, {38, 24 }, {51, 42 }, {55, 54 }, {63, 57 }, {63, 65 }, {68, 73 }, {81, 78 }, {81, 86 }, {91, 88 }, {98, 97 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
-			{ {-58,-76 }, {-27,-18 }, {-15, 28 }, { -10, 55 }, {-5, 69 }, { -2, 82 }, { 9,112 }, {16,118 }, { 30,132 }, {29,142 }, {32,155 }, {38,165 }, { 46,166 }, { 48,169 }, {58,171 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } },
-			{{ -39, -36 },{-21, -15 },{3, 8 },{3, 18 },{14, 34 },{22, 54 },{28, 61 },{41, 73 },{43, 79 },{48, 92 },{56, 94 },{60, 104 },{60, 113 },{66, 120 },{67, 123 },{70, 126 },{71, 133 },{73, 136 },{79, 140 },{88, 143 },{88, 148 },{99, 166 },{102, 170 },{102, 175 },{106, 184 },{109, 191 },{113, 206 },{116, 212} },
-			{ { 90,9 }, { 80,8 }, { 70, 7 }, { 60, 6 }, { 50, 5 }, { 40, 4 }, { 30, 3 }, { 20, 2 }, { 10, 1 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }
-			};
-			int[,,] arrMobility = new int[33, 7, 28];
+			int[] bonMaterial = new int[7] {0,1,3,3,5,8, 0xffff };
 			int[] arrDirKinght = { 14, -14, 18, -18, 31, -31, 33, -33 };
 			int[] arrDirBishop = { 15, -15, 17, -17 };
 			int[] arrDirRock = { 1, -1, 16, -16 };
@@ -250,7 +238,7 @@ namespace RapShortCs
 					if ((f & usColor) > 0) f &= 7;
 					else continue;
 					g_countMove = 0;
-					adjMobility += arrMaterial[g_phase, f];
+					adjMobility += bonMaterial[f];
 					switch (f)
 					{
 						case 1:
@@ -279,22 +267,18 @@ namespace RapShortCs
 						case 2:
 							pieceN++;
 							GenerateUniMoves(moves, attack, fr, arrDirKinght, 1);
-							adjMobility += arrMobility[g_phase, f, g_countMove];
 							break;
 						case 3:
 							pieceB++;
 							GenerateUniMoves(moves, attack, fr, arrDirBishop, 7);
-							adjMobility += arrMobility[g_phase, f, g_countMove];
 							break;
 						case 4:
 							pieceM++;
 							GenerateUniMoves(moves, attack, fr, arrDirRock, 7);
-							adjMobility += arrMobility[g_phase, f, g_countMove];
 							break;
 						case 5:
 							pieceM++;
 							GenerateUniMoves(moves, attack, fr, arrDirQueen, 7);
-							adjMobility += arrMobility[g_phase, f, g_countMove];
 							break;
 						case 6:
 							GenerateUniMoves(moves, attack, fr, arrDirQueen, 1);
@@ -305,15 +289,10 @@ namespace RapShortCs
 							if ((cr & 2) > 0)
 								if (((g_board[fr - 1] & colorEmpty) > 0) && ((g_board[fr - 2] & colorEmpty) > 0) && ((g_board[fr - 3] & colorEmpty) > 0))
 									GenerateMove(moves, fr, fr - 2, true, moveflagCastleQueen);
-							adjMobility += arrMobility[g_phase, f, g_countMove];
 							break;
 					}
 				}
 				adjInsufficient = (pieceM == 0) && (pieceN + (pieceB << 1) < 3);
-				if ((pieceN | pieceB | pieceM) == 0)
-					adjMobility -= 64;
-				if (pieceB > 1)
-					adjMobility += 64;
 				return moves;
 			}
 
@@ -389,21 +368,10 @@ namespace RapShortCs
 					boardCastle[arrCastleI[n]] = arrCasteleV[n];
 					boardCheck[arrCheckI[n]] = arrCheckV[n];
 				}
-				for (int ph = 2; ph < 33; ph++)
-				{
-					double f = ph / 32.0;
-					for (int p = 1; p < 7; p++)
-					{
-						arrMaterial[ph, p] = Convert.ToInt32(tmpMaterial[p, 0] * f + tmpMaterial[p, 1] * (1 - f));
-						for (int n = 0; n < 28; n++)
-							arrMobility[ph, p, n] = Convert.ToInt32(tmpMobility[p, n, 0] * f + tmpMobility[p, n, 1] * (1 - f));
-					}
-				}
 			}
 
 			void InitializeFromFen(string fen)
 			{
-				g_phase = 0;
 				for (int n = 0; n < 64; n++)
 					g_board[arrField[n]] = colorEmpty;
 				if (fen == "") fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -426,7 +394,6 @@ namespace RapShortCs
 					}
 					else
 					{
-						g_phase++;
 						char b = Char.ToLower(c);
 						bool isWhite = b != c;
 						int piece = isWhite ? colorWhite : colorBlack;
@@ -513,10 +480,7 @@ namespace RapShortCs
 				g_hash ^= g_hashBoard[fr, piece];
 				g_passing = 0;
 				if ((g_captured & 0xF) > 0)
-				{
 					g_move50 = 0;
-					g_phase--;
-				}
 				else if ((piece & 7) == piecePawn)
 				{
 					if (to == (fr + 32)) g_passing = (fr + 16);
@@ -586,8 +550,6 @@ namespace RapShortCs
 					g_board[to] = colorEmpty;
 				}
 				g_board[capi] = captured;
-				if ((captured & 7) > 0)
-					g_phase++;
 				whiteTurn ^= true;
 				g_moveNumber--;
 			}
@@ -690,7 +652,7 @@ namespace RapShortCs
 							int nps = 0;
 							if (t > 0)
 								nps = Convert.ToInt32((g_totalNodes / t) * 1000);
-							Console.WriteLine("info currmove " + bsFm + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + t /*+ " nps " + nps*/ + " depth " + depthL + " seldepth " + alphaDe + " score " + g_scoreFm + " pv " + bsPv);
+							Console.WriteLine("info currmove " + bsFm + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + t + " depth " + depthL + " seldepth " + alphaDe + " score " + g_scoreFm + " pv " + bsPv);
 						}
 					}
 					if (alpha >= beta) break;
