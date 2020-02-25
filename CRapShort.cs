@@ -156,7 +156,7 @@ namespace RapShortCs
 			int bsDepth = 0;
 			string bsFm = "";
 			string bsPv = "";
-			int[] bonMaterial = new int[7] {0,1,3,3,5,8, 0xffff };
+			int[] bonMaterial = new int[7] {0,100,300,310,500,800, 0xffff };
 			int[] arrDirKinght = { 14, -14, 18, -18, 31, -31, 33, -33 };
 			int[] arrDirBishop = { 15, -15, 17, -17 };
 			int[] arrDirRock = { 1, -1, 16, -16 };
@@ -643,7 +643,7 @@ namespace RapShortCs
 							else if (osScore < -0xf000)
 								g_scoreFm = "mate " + ((-0xfffe - osScore) >> 1);
 							else
-								g_scoreFm = "cp " + (osScore >> 2);
+								g_scoreFm = $"cp {osScore}";
 							bsIn = n;
 							bsFm = alphaFm;
 							bsPv = alphaPv;
@@ -710,7 +710,7 @@ namespace RapShortCs
 				switch (Uci.command)
 				{
 					case "uci":
-						Console.WriteLine("id name Rapcschess " + version);
+						Console.WriteLine("id name RapShortCs " + version);
 						Console.WriteLine("id author Thibor Raven");
 						Console.WriteLine("uciok");
 						break;
