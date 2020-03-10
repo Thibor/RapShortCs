@@ -617,7 +617,7 @@ namespace RapShortCs
 					myMoves--;
 					osScore = -0xffff;
 				}
-				else if ((g_move50 > 99) || IsRepetition() || ((adjInsufficient || osScore < 0) && myInsufficient))
+				else if ((g_move50 > 99) || IsRepetition() || ((adjInsufficient || osScore > 0) && myInsufficient))
 					osScore = 0;
 				else if (ply < depthL)
 					osScore = -GetScore(me, ply + 1, depthL, -beta, -alpha);
