@@ -770,9 +770,8 @@ namespace RapShortCs
 						if ((time == 0) && (depth == 0) && (node == 0))
 						{
 							double ct = Chess.whiteTurn ? Uci.GetInt("wtime", 0) : Uci.GetInt("btime", 0);
-							double ci = Chess.whiteTurn ? Uci.GetInt("winc", 0) : Uci.GetInt("binc", 0);
 							double mg = Uci.GetInt("movestogo", 32);
-							time = Convert.ToInt32((ct / mg) + ci - 0xff);
+							time = Convert.ToInt32(ct / (mg + 1));
 						}
 						Chess.Search(depth, time, node);
 						break;
