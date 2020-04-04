@@ -666,7 +666,7 @@ namespace RapShortCs
 			return alpha;
 		}
 
-		public void Search(int depth, int time, int nodes)
+		public void Start(int depth, int time, int nodes)
 		{
 			List<int> mu = GenerateAllMoves(whiteTurn, false);
 			if (mu.Count == 0)
@@ -707,7 +707,7 @@ namespace RapShortCs
 	{
 		static void Main(string[] args)
 		{
-			string version = "2019-10-01";
+			string version = "2020-04-04";
 			CChess Chess = new CChess();
 			CUci Uci = new CUci();
 
@@ -771,9 +771,15 @@ namespace RapShortCs
 						{
 							double ct = Chess.whiteTurn ? Uci.GetInt("wtime", 0) : Uci.GetInt("btime", 0);
 							double mg = Uci.GetInt("movestogo", 32);
-							time = Convert.ToInt32(ct / (mg + 1));
+							time = Convert.ToInt32(ct / mg);
 						}
-						Chess.Search(depth, time, node);
+						if (time > 0)
+						{
+							time -= 0x20;
+							if (time < 1)
+								time = 1;
+						}
+						Chess.Start(depth, time, node);
 						break;
 					case "quit":
 						return;
