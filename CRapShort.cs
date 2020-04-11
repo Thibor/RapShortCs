@@ -136,7 +136,6 @@ namespace RapShortCs
 		int g_lastCastle = 0;
 		bool adjInsufficient = false;
 		int adjMobility = 0;
-		int g_countMove = 0;
 		public int undoIndex = 0;
 		int[] arrField = new int[64];
 		int[] g_board = new int[256];
@@ -146,7 +145,6 @@ namespace RapShortCs
 		public bool whiteTurn = true;
 		int usColor = 0;
 		int enColor = 0;
-		int eeColor = 0;
 		int bsIn = -1;
 		int bsDepth = 0;
 		string bsFm = "";
@@ -231,7 +229,6 @@ namespace RapShortCs
 
 		void GenerateMove(List<int> moves, int fr, int to, bool add, int flag)
 		{
-			g_countMove++;
 			int rank = g_board[to] & 7;
 			if ((rank == pieceKing) || (((boardCheck[to] & g_lastCastle) == g_lastCastle) && ((g_lastCastle & maskCastle) > 0)))
 				g_inCheck = true;
@@ -248,7 +245,6 @@ namespace RapShortCs
 			g_inCheck = false;
 			usColor = wt ? colorWhite : colorBlack;
 			enColor = wt ? colorBlack : colorWhite;
-			eeColor = enColor | colorEmpty;
 			int pieceM = 0;
 			int pieceN = 0;
 			int pieceB = 0;
@@ -259,7 +255,6 @@ namespace RapShortCs
 				int f = g_board[fr];
 				if ((f & usColor) > 0) f &= 7;
 				else continue;
-				g_countMove = 0;
 				adjMobility += bonMaterial[f];
 				switch (f)
 				{
@@ -720,6 +715,7 @@ namespace RapShortCs
 					case "uci":
 						Console.WriteLine("id name RapShortCs " + version);
 						Console.WriteLine("id author Thibor Raven");
+						Console.WriteLine("id link https://github.com/Thibor/RapShortCs");
 						Console.WriteLine("uciok");
 						break;
 					case "isready":
