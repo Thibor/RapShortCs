@@ -639,10 +639,10 @@ namespace RapShortCs
 						bsPv = alphaPv;
 						bsDepth = alphaDe;
 						double t = stopwatch.Elapsed.TotalMilliseconds;
-						int nps = 0;
+						double nps = 0;
 						if (t > 0)
-							nps = Convert.ToInt32((g_totalNodes / t) * 1000);
-						Console.WriteLine("info currmove " + bsFm + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + t + " depth " + depthL + " seldepth " + alphaDe + " score " + g_scoreFm + " pv " + bsPv);
+							nps = (g_totalNodes / t) * 1000;
+						Console.WriteLine("info currmove " + bsFm + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + Convert.ToInt64(t) + " nps " + Convert.ToInt64(nps) + " depth " + depthL + " seldepth " + alphaDe + " score " + g_scoreFm + " pv " + bsPv);
 					}
 				}
 				if (alpha >= beta) break;
@@ -765,15 +765,20 @@ namespace RapShortCs
 						int node = Uci.GetInt("nodes", 0);
 						if ((time == 0) && (depth == 0) && (node == 0))
 						{
-							double ct = Chess.whiteTurn ? Uci.GetInt("wtime", 0) : Uci.GetInt("btime", 0);
+							time = Chess.whiteTurn ? Uci.GetInt("wtime", 0) : Uci.GetInt("btime", 0);
 							double mg = Uci.GetInt("movestogo", 32);
-							time = Convert.ToInt32(ct / mg);
+							time = Convert.ToInt32(time / mg);
+							if (time < 1)
+								time = 1;
 						}
 						if (time > 0)
 						{
 							time -= 0x20;
 							if (time < 1)
-								time = 1;
+							{
+								time = 0;
+								depth = 1;
+							}
 						}
 						Chess.Start(depth, time, node);
 						break;
