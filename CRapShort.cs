@@ -685,10 +685,10 @@ namespace RapShortCs
 				mu.RemoveAt(bsIn);
 				mu.Add(m);
 				double t = stopwatch.Elapsed.TotalMilliseconds;
-				int nps = 0;
+				double nps = 0;
 				if (t > 0)
-					nps = Convert.ToInt32((g_totalNodes / t) * 1000);
-				Console.WriteLine($"info depth {depthCur} nodes {g_totalNodes} time {t} nps {nps} {mu.Count}");
+					nps = (g_totalNodes / t) * 1000;
+				Console.WriteLine($"info depth {depthCur} nodes {g_totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} {mu.Count}");
 				depthCur++;
 			} while (((depth == 0) || (depth > depthCur - 1)) && (bsDepth >= depthCur - 1) && !g_stop && (mu.Count > 1));
 			string[] ponder = bsPv.Split(' ');
