@@ -128,8 +128,10 @@ namespace RapShortCs
 		int g_moveNumber = 0;
 		int g_totalNodes = 0;
 		bool g_inCheck = false;
-		int g_nodeout = 0;
 		int g_timeout = 0;
+		int g_depthout = 0;
+		int g_nodeout = 0;
+		int g_mainDepth = 1;
 		bool g_stop = false;
 		string g_pv = "";
 		string g_scoreFm = "";
@@ -544,12 +546,16 @@ namespace RapShortCs
 			g_moveNumber--;
 		}
 
+		bool GetStop()
+		{
+			return ((g_timeout > 0) && (stopwatch.Elapsed.TotalMilliseconds > g_timeout)) || ((g_depthout > 0) && (g_mainDepth > g_depthout)) || ((g_nodeout > 0) && (g_totalNodes > g_nodeout));
+		}
+
 		int Quiesce(List<int> mu, int depth, int depthL, int alpha, int beta, int score)
 		{
 			int myMobility = adjMobility;
 			int alphaDe = 0;
 			int index = mu.Count;
-			string alphaFm = "";
 			string alphaPv = "";
 			if (alpha < score)
 				alpha = score;
@@ -558,7 +564,7 @@ namespace RapShortCs
 			else while (index-- > 0)
 				{
 					if ((++g_totalNodes & 0x1fff) == 0)
-						g_stop = (((g_timeout > 0) && (stopwatch.Elapsed.TotalMilliseconds > g_timeout)) || ((g_nodeout > 0) && (g_totalNodes > g_nodeout)));
+						g_stop = GetStop();
 					int cm = mu[index];
 					MakeMove(cm);
 					List<int> me = GenerateAllMoves(whiteTurn, true);
@@ -575,8 +581,7 @@ namespace RapShortCs
 					{
 						alpha = osScore;
 						alphaDe = g_depth + 1;
-						alphaFm = FormatMove(cm);
-						alphaPv = alphaFm + ' ' + g_pv;
+						alphaPv = $"{FormatMove(cm)} {g_pv}";
 					}
 					if (alpha >= beta) break;
 				}
@@ -599,7 +604,7 @@ namespace RapShortCs
 			{
 				if ((++g_totalNodes & 0x1fff) == 0)
 				{
-					g_stop = ((depthL > 1) && (((g_timeout > 0) && (stopwatch.Elapsed.TotalMilliseconds > g_timeout)) || ((g_nodeout > 0) && (g_totalNodes > g_nodeout)))) || (CReader.ReadLine(false) == "stop");
+					g_stop = ((depthL > 1) && GetStop()) || (CReader.ReadLine(false) == "stop");
 				}
 				int cm = mu[n];
 				MakeMove(cm);
@@ -629,9 +634,9 @@ namespace RapShortCs
 					if (ply == 1)
 					{
 						if (osScore > 0xf000)
-							g_scoreFm = "mate " + ((0xffff - osScore) >> 1);
+							g_scoreFm = $"mate {0xffff - osScore}";
 						else if (osScore < -0xf000)
-							g_scoreFm = "mate " + ((-0xfffe - osScore) >> 1);
+							g_scoreFm = $"mate {-0xfffe - osScore}";
 						else
 							g_scoreFm = $"cp {osScore}";
 						bsIn = n;
@@ -671,16 +676,17 @@ namespace RapShortCs
 			}
 			bool myInsufficient = adjInsufficient;
 			int myMobility = adjMobility;
-			int depthCur = 1;
 			g_stop = false;
 			g_totalNodes = 0;
 			g_timeout = time;
+			g_depthout = depth;
 			g_nodeout = nodes;
+			g_mainDepth = 1;
 			do
 			{
 				adjInsufficient = myInsufficient;
 				adjMobility = myMobility;
-				GetScore(mu, 1, depthCur, -0xffff, 0xffff);
+				GetScore(mu, 1, g_mainDepth, -0xffff, 0xffff);
 				int m = mu[bsIn];
 				mu.RemoveAt(bsIn);
 				mu.Add(m);
@@ -688,9 +694,10 @@ namespace RapShortCs
 				double nps = 0;
 				if (t > 0)
 					nps = (g_totalNodes / t) * 1000;
-				Console.WriteLine($"info depth {depthCur} nodes {g_totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} {mu.Count}");
-				depthCur++;
-			} while (((depth == 0) || (depth > depthCur - 1)) && (bsDepth >= depthCur - 1) && !g_stop && (mu.Count > 1));
+				Console.WriteLine($"info depth {g_mainDepth} nodes {g_totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} {mu.Count}");
+				if (++g_mainDepth > 100)
+					break;
+			} while (!GetStop() && !g_stop && (mu.Count > 1));
 			string[] ponder = bsPv.Split(' ');
 			string pm = ponder.Length > 1 ? " ponder " + ponder[1] : "";
 			Console.WriteLine("bestmove " + bsFm + pm);
