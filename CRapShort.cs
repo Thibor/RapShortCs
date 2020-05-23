@@ -634,9 +634,9 @@ namespace RapShortCs
 					if (ply == 1)
 					{
 						if (osScore > 0xf000)
-							g_scoreFm = $"mate {0xffff - osScore}";
+							g_scoreFm = $"mate {(0xffff - osScore) >> 1}";
 						else if (osScore < -0xf000)
-							g_scoreFm = $"mate {-0xfffe - osScore}";
+							g_scoreFm = $"mate {(-0xfffe - osScore) >> 1}";
 						else
 							g_scoreFm = $"cp {osScore}";
 						bsIn = n;
