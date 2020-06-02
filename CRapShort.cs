@@ -59,45 +59,6 @@ namespace RapShortCs
 		}
 	}
 
-	class CReader
-	{
-		private static Thread inputThread;
-		private static AutoResetEvent getInput;
-		private static AutoResetEvent gotInput;
-		public static string input = "";
-
-		static CReader()
-		{
-			getInput = new AutoResetEvent(false);
-			gotInput = new AutoResetEvent(false);
-			inputThread = new Thread(Reader);
-			inputThread.IsBackground = true;
-			inputThread.Start();
-		}
-
-		private static void Reader()
-		{
-			while (true)
-			{
-				getInput.WaitOne();
-				input = "";
-				input = Console.ReadLine();
-				getInput.Reset();
-				gotInput.Set();
-			}
-		}
-
-		public static string ReadLine(bool wait)
-		{
-			getInput.Set();
-			if (wait)
-				gotInput.WaitOne();
-			return input;
-		}
-
-
-	}
-
 	class CChess
 	{
 		const int piecePawn = 0x01;
@@ -119,6 +80,9 @@ namespace RapShortCs
 		const int moveflagPromoteKnight = 0x80 << 16;
 		const int maskCastle = moveflagCastleKing | moveflagCastleQueen;
 		const int maskColor = colorBlack | colorWhite;
+		int inTime = 0;
+		int inDepth = 0;
+		int inNodes = 0;
 		int g_captured = 0;
 		int g_castleRights = 0xf;
 		int g_depth = 0;
@@ -139,11 +103,11 @@ namespace RapShortCs
 		bool adjInsufficient = false;
 		int adjMobility = 0;
 		public int undoIndex = 0;
-		int[] arrField = new int[64];
-		int[] g_board = new int[256];
-		int[,] g_hashBoard = new int[256, 16];
-		int[] boardCheck = new int[256];
-		int[] boardCastle = new int[256];
+		readonly int[] arrField = new int[64];
+		readonly int[] g_board = new int[256];
+		readonly int[,] g_hashBoard = new int[256, 16];
+		readonly int[] boardCheck = new int[256];
+		readonly int[] boardCastle = new int[256];
 		public bool whiteTurn = true;
 		int usColor = 0;
 		int enColor = 0;
@@ -151,14 +115,16 @@ namespace RapShortCs
 		int bsDepth = 0;
 		string bsFm = "";
 		string bsPv = "";
-		int[] bonMaterial = new int[7] { 0, 100, 300, 310, 500, 800, 0xffff };
-		int[] arrDirKinght = { 14, -14, 18, -18, 31, -31, 33, -33 };
-		int[] arrDirBishop = { 15, -15, 17, -17 };
-		int[] arrDirRock = { 1, -1, 16, -16 };
-		int[] arrDirQueen = { 1, -1, 15, -15, 16, -16, 17, -17 };
+		readonly int[] bonMaterial = new int[7] { 0, 100, 300, 310, 500, 800, 0xffff };
+		readonly int[] arrDirKinght = { 14, -14, 18, -18, 31, -31, 33, -33 };
+		readonly int[] arrDirBishop = { 15, -15, 17, -17 };
+		readonly int[] arrDirRock = { 1, -1, 16, -16 };
+		readonly int[] arrDirQueen = { 1, -1, 15, -15, 16, -16, 17, -17 };
 		public static Random random = new Random();
-		CUndo[] undoStack = new CUndo[0xfff];
+		readonly CUndo[] undoStack = new CUndo[0xfff];
+		Thread startThread;
 		public Stopwatch stopwatch = Stopwatch.StartNew();
+		public CSynStop synStop = new CSynStop();
 
 		public CChess()
 		{
@@ -364,6 +330,7 @@ namespace RapShortCs
 
 		public void InitializeFromFen(string fen)
 		{
+			synStop.SetStop(false);
 			for (int n = 0; n < 64; n++)
 				g_board[arrField[n]] = colorEmpty;
 			if (fen == "") fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -443,7 +410,6 @@ namespace RapShortCs
 			int flags = move & 0xFF0000;
 			int piecefr = g_board[fr];
 			int piece = piecefr & 0xf;
-			int capi = to;
 			g_captured = g_board[to];
 			g_lastCastle = (move & maskCastle) | (piecefr & maskColor);
 			if ((flags & moveflagCastleKing) > 0)
@@ -458,7 +424,7 @@ namespace RapShortCs
 			}
 			else if ((flags & moveflagPassing) > 0)
 			{
-				capi = whiteTurn ? to + 16 : to - 16;
+				int capi = whiteTurn ? to + 16 : to - 16;
 				g_captured = g_board[capi];
 				g_board[capi] = colorEmpty;
 			}
@@ -511,7 +477,6 @@ namespace RapShortCs
 			int fr = move & 0xFF;
 			int to = (move >> 8) & 0xFF;
 			int flags = move & 0xFF0000;
-			int piece = g_board[to];
 			int capi = to;
 			CUndo undo = undoStack[--undoIndex];
 			g_passing = undo.passing;
@@ -532,7 +497,7 @@ namespace RapShortCs
 			}
 			if ((flags & moveflagPromotion) > 0)
 			{
-				piece = (g_board[to] & (~0x7)) | piecePawn;
+				int piece = (g_board[to] & (~0x7)) | piecePawn;
 				g_board[fr] = piece;
 			}
 			else g_board[fr] = g_board[to];
@@ -564,7 +529,8 @@ namespace RapShortCs
 			else while (index-- > 0)
 				{
 					if ((++g_totalNodes & 0x1fff) == 0)
-						g_stop = GetStop();
+						if (GetStop() || synStop.GetStop())
+							g_stop = true;
 					int cm = mu[index];
 					MakeMove(cm);
 					List<int> me = GenerateAllMoves(whiteTurn, true);
@@ -597,16 +563,13 @@ namespace RapShortCs
 			int n = mu.Count;
 			int myMoves = n;
 			int alphaDe = 0;
-			string alphaFm = "";
 			string alphaPv = "";
-
 			while (n-- > 0)
 			{
-				if ((++g_totalNodes & 0x1fff) == 0)
-				{
-					g_stop = ((depthL > 1) && GetStop()) || (CReader.ReadLine(false) == "stop");
-				}
 				int cm = mu[n];
+				if ((++g_totalNodes & 0x1fff) == 0)
+					if ((bsDepth > 0) && (GetStop() || synStop.GetStop()))
+						g_stop = true;
 				MakeMove(cm);
 				List<int> me = GenerateAllMoves(whiteTurn, ply == depthL);
 				g_depth = 0;
@@ -627,9 +590,9 @@ namespace RapShortCs
 				if (g_stop) return -0xffff;
 				if (alpha < osScore)
 				{
+					string alphaFm = FormatMove(cm);
+					alphaPv = $"{alphaFm} {g_pv}";
 					alpha = osScore;
-					alphaFm = FormatMove(cm);
-					alphaPv = alphaFm + ' ' + g_pv;
 					alphaDe = g_depth + 1;
 					if (ply == 1)
 					{
@@ -674,6 +637,8 @@ namespace RapShortCs
 				Console.WriteLine($"info string no moves");
 				return;
 			}
+			int os;
+			int depthLimit = mu.Count == 1 ? 3 : 100;
 			bool myInsufficient = adjInsufficient;
 			int myMobility = adjMobility;
 			g_stop = false;
@@ -686,7 +651,7 @@ namespace RapShortCs
 			{
 				adjInsufficient = myInsufficient;
 				adjMobility = myMobility;
-				GetScore(mu, 1, g_mainDepth, -0xffff, 0xffff);
+				os = GetScore(mu, 1, g_mainDepth, -0xffff, 0xffff);
 				int m = mu[bsIn];
 				mu.RemoveAt(bsIn);
 				mu.Add(m);
@@ -695,19 +660,56 @@ namespace RapShortCs
 				if (t > 0)
 					nps = (g_totalNodes / t) * 1000;
 				Console.WriteLine($"info depth {g_mainDepth} nodes {g_totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} {mu.Count}");
-				if (++g_mainDepth > 100)
+				if (++g_mainDepth > depthLimit)
 					break;
-			} while (!GetStop() && !g_stop && (mu.Count > 1));
+			} while (!(GetStop() || synStop.GetStop()) && (os > -0xf000) && (os < 0xf000));
 			string[] ponder = bsPv.Split(' ');
 			string pm = ponder.Length > 1 ? " ponder " + ponder[1] : "";
 			Console.WriteLine("bestmove " + bsFm + pm);
+		}
+
+		public void Thread()
+		{
+			Start(inDepth, inTime, inNodes);
+		}
+
+		public void StartThread(int depth, int time, int nodes)
+		{
+			inDepth = depth;
+			inTime = time;
+			inNodes = nodes;
+			startThread = new Thread(Thread);
+			startThread.Start();
+		}
+
+	}
+
+	class CSynStop
+	{
+		private bool value;
+		private readonly object locker = new object();
+
+		public bool GetStop()
+		{
+			lock (locker)
+			{
+				return value;
+			}
+		}
+
+		public void SetStop(bool v)
+		{
+			lock (locker)
+			{
+				value = v;
+			}
 		}
 
 	}
 
 	class CRapShort
 	{
-		static void Main(string[] args)
+		static void Main()
 		{
 			string version = "2020-04-04";
 			CChess Chess = new CChess();
@@ -715,7 +717,7 @@ namespace RapShortCs
 
 			while (true)
 			{
-				string msg = CReader.ReadLine(true);
+				string msg = Console.ReadLine();
 				Uci.SetMsg(msg);
 				switch (Uci.command)
 				{
@@ -770,7 +772,8 @@ namespace RapShortCs
 						int time = Uci.GetInt("movetime", 0);
 						int depth = Uci.GetInt("depth", 0);
 						int node = Uci.GetInt("nodes", 0);
-						if ((time == 0) && (depth == 0) && (node == 0))
+						int infinite = Uci.GetIndex("infinite", 0);
+						if ((time == 0) && (depth == 0) && (node == 0) && (infinite == 0))
 						{
 							time = Chess.whiteTurn ? Uci.GetInt("wtime", 0) : Uci.GetInt("btime", 0);
 							double mg = Uci.GetInt("movestogo", 32);
@@ -787,9 +790,13 @@ namespace RapShortCs
 								depth = 1;
 							}
 						}
-						Chess.Start(depth, time, node);
+						Chess.StartThread(depth, time, node);
+						break;
+					case "stop":
+						Chess.synStop.SetStop(true);
 						break;
 					case "quit":
+						Chess.synStop.SetStop(true);
 						return;
 				}
 
