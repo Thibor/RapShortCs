@@ -8,11 +8,11 @@ namespace RapShortCs
 	class CUndo
 	{
 		public int captured;
-		public int hash;
 		public int passing;
 		public int castle;
 		public int move50;
 		public int lastCastle;
+		public ulong hash;
 	}
 
 	class CUci
@@ -80,13 +80,13 @@ namespace RapShortCs
 		const int moveflagPromoteKnight = 0x80 << 16;
 		const int maskCastle = moveflagCastleKing | moveflagCastleQueen;
 		const int maskColor = colorBlack | colorWhite;
+		const int maskPromotion = moveflagPromoteQueen | moveflagPromoteRook | moveflagPromoteBishop | moveflagPromoteKnight;
 		int inTime = 0;
 		int inDepth = 0;
 		int inNodes = 0;
-		int g_captured = 0;
 		int g_castleRights = 0xf;
 		int g_depth = 0;
-		int g_hash = 0;
+		ulong g_hash = 0;
 		int g_passing = 0;
 		public int g_move50 = 0;
 		int g_moveNumber = 0;
@@ -99,13 +99,11 @@ namespace RapShortCs
 		bool g_stop = false;
 		string g_pv = "";
 		string g_scoreFm = "";
-		int g_lastCastle = 0;
-		bool adjInsufficient = false;
-		int adjMobility = 0;
+		int g_lastCastle = colorEmpty;
 		public int undoIndex = 0;
 		readonly int[] arrField = new int[64];
 		readonly int[] g_board = new int[256];
-		readonly int[,] g_hashBoard = new int[256, 16];
+		readonly ulong[,] g_hashBoard = new ulong[256, 16];
 		readonly int[] boardCheck = new int[256];
 		readonly int[] boardCastle = new int[256];
 		public bool whiteTurn = true;
@@ -153,9 +151,9 @@ namespace RapShortCs
 			}
 		}
 
-		int RAND_32()
+		ulong RAND_32()
 		{
-			return random.Next();
+			return ((ulong)random.Next() << 32) | ((ulong)random.Next() << 0);
 		}
 
 		string FormatMove(int move)
@@ -189,25 +187,23 @@ namespace RapShortCs
 		{
 			for (int n = undoIndex - 4; n >= undoIndex - g_move50; n -= 2)
 				if (undoStack[n].hash == g_hash)
-				{
 					return true;
-				}
 			return false;
 		}
 
 		void GenerateMove(List<int> moves, int fr, int to, bool add, int flag)
 		{
 			int rank = g_board[to] & 7;
-			if ((rank == pieceKing) || (((boardCheck[to] & g_lastCastle) == g_lastCastle) && ((g_lastCastle & maskCastle) > 0)))
+			if ((rank == pieceKing) || ((boardCheck[to] & g_lastCastle) == g_lastCastle))
 				g_inCheck = true;
 			else if (add)
-				if (rank > 0)
+				if ((rank > 0) || ((flag & moveflagPassing) > 0) || ((flag & maskPromotion) > 0))
 					moves.Add(fr | (to << 8) | flag);
 				else
 					moves.Insert(0, fr | (to << 8) | flag);
 		}
 
-		List<int> GenerateAllMoves(bool wt, bool attack)
+		List<int> GenerateAllMoves(bool wt, out int adjMobility, out bool adjInsufficient)
 		{
 			adjMobility = 0;
 			g_inCheck = false;
@@ -230,7 +226,7 @@ namespace RapShortCs
 						pieceM++;
 						int del = wt ? -16 : 16;
 						int to = fr + del;
-						if (((g_board[to] & colorEmpty) > 0) && !attack)
+						if (((g_board[to] & colorEmpty) > 0))
 						{
 							GeneratePwnMoves(moves, fr, to, true, 0);
 							if ((g_board[fr - del - del] == 0) && (g_board[to + del] & colorEmpty) > 0)
@@ -251,22 +247,24 @@ namespace RapShortCs
 						break;
 					case 2:
 						pieceN++;
-						GenerateUniMoves(moves, attack, fr, arrDirKinght, 1);
+						GenerateUniMoves(moves, fr, arrDirKinght, 1);
 						break;
 					case 3:
 						pieceB++;
-						GenerateUniMoves(moves, attack, fr, arrDirBishop, 7);
+						GenerateUniMoves(moves, fr, arrDirBishop, 7);
 						break;
 					case 4:
 						pieceM++;
-						GenerateUniMoves(moves, attack, fr, arrDirRock, 7);
+						GenerateUniMoves(moves, fr, arrDirRock, 7);
 						break;
 					case 5:
 						pieceM++;
-						GenerateUniMoves(moves, attack, fr, arrDirQueen, 7);
+						GenerateUniMoves(moves, fr, arrDirQueen, 7);
 						break;
 					case 6:
-						GenerateUniMoves(moves, attack, fr, arrDirQueen, 1);
+						adjMobility -= Math.Abs((((n & 7) << 1) - 7) >> 1);
+						adjMobility -= Math.Abs((((n >> 3) << 1) - 7) >> 1);
+						GenerateUniMoves(moves, fr, arrDirQueen, 1);
 						int cr = wt ? g_castleRights : g_castleRights >> 2;
 						if ((cr & 1) > 0)
 							if (((g_board[fr + 1] & colorEmpty) > 0) && ((g_board[fr + 2] & colorEmpty) > 0))
@@ -277,6 +275,7 @@ namespace RapShortCs
 						break;
 				}
 			}
+			adjMobility += moves.Count;
 			adjInsufficient = (pieceM == 0) && (pieceN + (pieceB << 1) < 3);
 			return moves;
 		}
@@ -295,7 +294,7 @@ namespace RapShortCs
 				GenerateMove(moves, fr, to, add, flag);
 		}
 
-		void GenerateUniMoves(List<int> moves, bool attack, int fr, int[] dir, int count)
+		void GenerateUniMoves(List<int> moves, int fr, int[] dir, int count)
 		{
 			for (int n = 0; n < dir.Length; n++)
 			{
@@ -305,7 +304,7 @@ namespace RapShortCs
 				{
 					to += dir[n];
 					if ((g_board[to] & colorEmpty) > 0)
-						GenerateMove(moves, fr, to, !attack, 0);
+						GenerateMove(moves, fr, to, true, 0);
 					else if ((g_board[to] & enColor) > 0)
 					{
 						GenerateMove(moves, fr, to, true, 0);
@@ -317,13 +316,13 @@ namespace RapShortCs
 			}
 		}
 
-		public int GetMoveFromString(string moveString)
+		public int UmoToEmo(string umo)
 		{
-			List<int> moves = GenerateAllMoves(whiteTurn, false);
-			for (int i = 0; i < moves.Count; i++)
+			List<int> moves = GenerateAllMoves(whiteTurn, out _, out _);
+			foreach (int m in moves)
 			{
-				if (FormatMove(moves[i]) == moveString)
-					return moves[i];
+				if (FormatMove(m) == umo)
+					return m;
 			}
 			return 0;
 		}
@@ -331,6 +330,7 @@ namespace RapShortCs
 		public void InitializeFromFen(string fen)
 		{
 			synStop.SetStop(false);
+			g_lastCastle = colorEmpty;
 			for (int n = 0; n < 64; n++)
 				g_board[arrField[n]] = colorEmpty;
 			if (fen == "") fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -353,11 +353,9 @@ namespace RapShortCs
 				}
 				else
 				{
-					char b = Char.ToLower(c);
-					bool isWhite = b != c;
-					int piece = isWhite ? colorWhite : colorBlack;
+					int piece = Char.IsUpper(c) ? colorWhite : colorBlack;
 					int index = (row + 4) * 16 + col + 4;
-					switch (b)
+					switch (Char.ToLower(c))
 					{
 						case 'p':
 							piece |= piecePawn;
@@ -410,26 +408,28 @@ namespace RapShortCs
 			int flags = move & 0xFF0000;
 			int piecefr = g_board[fr];
 			int piece = piecefr & 0xf;
-			g_captured = g_board[to];
-			g_lastCastle = (move & maskCastle) | (piecefr & maskColor);
+			int captured = g_board[to];
+			g_lastCastle = colorEmpty;
 			if ((flags & moveflagCastleKing) > 0)
 			{
+				g_lastCastle = moveflagCastleKing | (piecefr & maskColor);
 				g_board[to - 1] = g_board[to + 1];
 				g_board[to + 1] = colorEmpty;
 			}
 			else if ((flags & moveflagCastleQueen) > 0)
 			{
+				g_lastCastle = moveflagCastleQueen | (piecefr & maskColor);
 				g_board[to + 1] = g_board[to - 2];
 				g_board[to - 2] = colorEmpty;
 			}
 			else if ((flags & moveflagPassing) > 0)
 			{
 				int capi = whiteTurn ? to + 16 : to - 16;
-				g_captured = g_board[capi];
+				captured = g_board[capi];
 				g_board[capi] = colorEmpty;
 			}
-			CUndo undo = undoStack[undoIndex++];
-			undo.captured = g_captured;
+			ref CUndo undo = ref undoStack[undoIndex++];
+			undo.captured = captured;
 			undo.hash = g_hash;
 			undo.passing = g_passing;
 			undo.castle = g_castleRights;
@@ -437,7 +437,7 @@ namespace RapShortCs
 			undo.lastCastle = g_lastCastle;
 			g_hash ^= g_hashBoard[fr, piece];
 			g_passing = 0;
-			if ((g_captured & 0xF) > 0)
+			if (captured != colorEmpty)
 				g_move50 = 0;
 			else if ((piece & 7) == piecePawn)
 			{
@@ -459,7 +459,7 @@ namespace RapShortCs
 				else
 					newPiece |= pieceRook;
 				g_board[to] = newPiece;
-				g_hash ^= g_hashBoard[to, newPiece & 7];
+				g_hash ^= g_hashBoard[to, newPiece & 0xf];
 			}
 			else
 			{
@@ -516,50 +516,8 @@ namespace RapShortCs
 			return ((g_timeout > 0) && (stopwatch.Elapsed.TotalMilliseconds > g_timeout)) || ((g_depthout > 0) && (g_mainDepth > g_depthout)) || ((g_nodeout > 0) && (g_totalNodes > g_nodeout));
 		}
 
-		int Quiesce(List<int> mu, int depth, int depthL, int alpha, int beta, int score)
+		int GetScore(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient)
 		{
-			int myMobility = adjMobility;
-			int alphaDe = 0;
-			int index = mu.Count;
-			string alphaPv = "";
-			if (alpha < score)
-				alpha = score;
-			if (alpha >= beta)
-				alpha = score;
-			else while (index-- > 0)
-				{
-					if ((++g_totalNodes & 0x1fff) == 0)
-						if (GetStop() || synStop.GetStop())
-							g_stop = true;
-					int cm = mu[index];
-					MakeMove(cm);
-					List<int> me = GenerateAllMoves(whiteTurn, true);
-					int osScore = myMobility - adjMobility;
-					g_depth = 0;
-					g_pv = "";
-					if (g_inCheck)
-						osScore = -0xffff;
-					else if (depth < depthL)
-						osScore = -Quiesce(me, depth + 1, depthL, -beta, -alpha, -osScore);
-					UnmakeMove(cm);
-					if (g_stop) return -0xffff;
-					if (alpha < osScore)
-					{
-						alpha = osScore;
-						alphaDe = g_depth + 1;
-						alphaPv = $"{FormatMove(cm)} {g_pv}";
-					}
-					if (alpha >= beta) break;
-				}
-			g_depth = alphaDe;
-			g_pv = alphaPv;
-			return alpha;
-		}
-
-		int GetScore(List<int> mu, int ply, int depthL, int alpha, int beta)
-		{
-			bool myInsufficient = adjInsufficient;
-			int myMobility = adjMobility;
 			int n = mu.Count;
 			int myMoves = n;
 			int alphaDe = 0;
@@ -571,21 +529,21 @@ namespace RapShortCs
 					if ((bsDepth > 0) && (GetStop() || synStop.GetStop()))
 						g_stop = true;
 				MakeMove(cm);
-				List<int> me = GenerateAllMoves(whiteTurn, ply == depthL);
+				List<int> me = GenerateAllMoves(whiteTurn, out int enScore, out bool enInsufficient);
+				int osScore = usScore - enScore;
+				if (usInsufficient && enInsufficient)
+					osScore = 0;
 				g_depth = 0;
 				g_pv = "";
-				int osScore = myMobility - adjMobility;
 				if (g_inCheck)
 				{
 					myMoves--;
 					osScore = -0xffff;
 				}
-				else if ((g_move50 > 99) || IsRepetition() || ((adjInsufficient || osScore > 0) && myInsufficient))
+				else if ((g_move50 > 99) || IsRepetition())
 					osScore = 0;
-				else if (ply < depthL)
-					osScore = -GetScore(me, ply + 1, depthL, -beta, -alpha);
-				else
-					osScore = -Quiesce(me, 1, depthL, -beta, -alpha, -osScore);
+				else if (ply < depth)
+					osScore = -GetScore(me, ply + 1, depth, -beta, -alpha, enScore, enInsufficient);
 				UnmakeMove(cm);
 				if (g_stop) return -0xffff;
 				if (alpha < osScore)
@@ -610,18 +568,16 @@ namespace RapShortCs
 						double nps = 0;
 						if (t > 0)
 							nps = (g_totalNodes / t) * 1000;
-						Console.WriteLine("info currmove " + bsFm + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + Convert.ToInt64(t) + " nps " + Convert.ToInt64(nps) + " depth " + depthL + " seldepth " + alphaDe + " score " + g_scoreFm + " pv " + bsPv);
+						Console.WriteLine("info currmove " + bsFm + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + Convert.ToInt64(t) + " nps " + Convert.ToInt64(nps) + " depth " + depth + " seldepth " + alphaDe + " score " + g_scoreFm + " pv " + bsPv);
 					}
 				}
 				if (alpha >= beta) break;
 			}
 			if (myMoves == 0)
 			{
-				GenerateAllMoves(whiteTurn ^ true, true);
+				GenerateAllMoves(whiteTurn ^ true, out _, out _);
 				if (!g_inCheck)
-				{
 					alpha = 0;
-				}
 				else alpha = -0xffff + ply;
 			}
 			g_depth = alphaDe;
@@ -631,7 +587,7 @@ namespace RapShortCs
 
 		public void Start(int depth, int time, int nodes)
 		{
-			List<int> mu = GenerateAllMoves(whiteTurn, false);
+			List<int> mu = GenerateAllMoves(whiteTurn, out int usScore, out bool usInsufficient);
 			if (mu.Count == 0)
 			{
 				Console.WriteLine($"info string no moves");
@@ -639,8 +595,6 @@ namespace RapShortCs
 			}
 			int os;
 			int depthLimit = mu.Count == 1 ? 3 : 100;
-			bool myInsufficient = adjInsufficient;
-			int myMobility = adjMobility;
 			g_stop = false;
 			g_totalNodes = 0;
 			g_timeout = time;
@@ -649,9 +603,7 @@ namespace RapShortCs
 			g_mainDepth = 1;
 			do
 			{
-				adjInsufficient = myInsufficient;
-				adjMobility = myMobility;
-				os = GetScore(mu, 1, g_mainDepth, -0xffff, 0xffff);
+				os = GetScore(mu, 1, g_mainDepth, -0xffff, 0xffff, usScore, usInsufficient);
 				int m = mu[bsIn];
 				mu.RemoveAt(bsIn);
 				mu.Add(m);
@@ -711,7 +663,7 @@ namespace RapShortCs
 	{
 		static void Main()
 		{
-			string version = "2020-04-04";
+			string version = "2020-10-01";
 			CChess Chess = new CChess();
 			CUci Uci = new CUci();
 
@@ -761,7 +713,7 @@ namespace RapShortCs
 							for (int n = lo; n < hi; n++)
 							{
 								string m = Uci.tokens[n];
-								Chess.MakeMove(Chess.GetMoveFromString(m));
+								Chess.MakeMove(Chess.UmoToEmo(m));
 								if (Chess.g_move50 == 0)
 									Chess.undoIndex = 0;
 							}
@@ -785,10 +737,7 @@ namespace RapShortCs
 						{
 							time -= 0x20;
 							if (time < 1)
-							{
-								time = 0;
-								depth = 1;
-							}
+								time = 1;
 						}
 						Chess.StartThread(depth, time, node);
 						break;
