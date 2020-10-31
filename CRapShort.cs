@@ -73,19 +73,18 @@ namespace RapShortCs
 		const int moveflagPassing = 0x02 << 16;
 		const int moveflagCastleKing = 0x04 << 16;
 		const int moveflagCastleQueen = 0x08 << 16;
-		const int moveflagPromotion = 0xf0 << 16;
-		const int moveflagPromoteQueen = 0x10 << 16;
-		const int moveflagPromoteRook = 0x20 << 16;
-		const int moveflagPromoteBishop = 0x40 << 16;
-		const int moveflagPromoteKnight = 0x80 << 16;
+		const int moveflagPromoteQueen = pieceQueen << 20;
+		const int moveflagPromoteRook = pieceRook << 20;
+		const int moveflagPromoteBishop = pieceBishop << 20;
+		const int moveflagPromoteKnight = pieceKnight << 20;
 		const int maskCastle = moveflagCastleKing | moveflagCastleQueen;
 		const int maskColor = colorBlack | colorWhite;
 		const int maskPromotion = moveflagPromoteQueen | moveflagPromoteRook | moveflagPromoteBishop | moveflagPromoteKnight;
+		const int maskPassPromotion = maskPromotion | moveflagPassing;
 		int inTime = 0;
 		int inDepth = 0;
 		int inNodes = 0;
 		int g_castleRights = 0xf;
-		int g_depth = 0;
 		ulong g_hash = 0;
 		int g_passing = 0;
 		public int g_move50 = 0;
@@ -97,8 +96,6 @@ namespace RapShortCs
 		int g_nodeout = 0;
 		int g_mainDepth = 1;
 		bool g_stop = false;
-		string g_pv = "";
-		string g_scoreFm = "";
 		int g_lastCastle = colorEmpty;
 		public int undoIndex = 0;
 		readonly int[] arrField = new int[64];
@@ -107,10 +104,8 @@ namespace RapShortCs
 		readonly int[] boardCheck = new int[256];
 		readonly int[] boardCastle = new int[256];
 		public bool whiteTurn = true;
-		int usColor = 0;
-		int enColor = 0;
-		int bsIn = -1;
-		int bsDepth = 0;
+		int usColor = colorWhite;
+		int enColor = colorBlack;
 		string bsFm = "";
 		string bsPv = "";
 		readonly int[] bonMaterial = new int[7] { 0, 100, 300, 310, 500, 800, 0xffff };
@@ -156,14 +151,15 @@ namespace RapShortCs
 			return ((ulong)random.Next() << 32) | ((ulong)random.Next() << 0);
 		}
 
-		string FormatMove(int move)
+		string EmoToUmo(int move)
 		{
 			string result = FormatSquare(move & 0xFF) + FormatSquare((move >> 8) & 0xFF);
-			if ((move & moveflagPromotion) > 0)
+			int promotion = move & maskPromotion;
+			if (promotion > 0)
 			{
-				if ((move & moveflagPromoteQueen) > 0) result += 'q';
-				else if ((move & moveflagPromoteRook) > 0) result += 'r';
-				else if ((move & moveflagPromoteBishop) > 0) result += 'b';
+				if (promotion == moveflagPromoteQueen) result += 'q';
+				else if (promotion == moveflagPromoteRook) result += 'r';
+				else if (promotion == moveflagPromoteBishop) result += 'b';
 				else result += 'n';
 			}
 			return result;
@@ -197,15 +193,15 @@ namespace RapShortCs
 			if ((rank == pieceKing) || ((boardCheck[to] & g_lastCastle) == g_lastCastle))
 				g_inCheck = true;
 			else if (add)
-				if ((rank > 0) || ((flag & moveflagPassing) > 0) || ((flag & maskPromotion) > 0))
+				if ((rank > 0) || ((flag & maskPassPromotion) > 0))
 					moves.Add(fr | (to << 8) | flag);
 				else
 					moves.Insert(0, fr | (to << 8) | flag);
 		}
 
-		List<int> GenerateAllMoves(bool wt, out int adjMobility, out bool adjInsufficient)
+		List<int> GenerateAllMoves(bool wt, out int score, out bool insufficient)
 		{
-			adjMobility = 0;
+			score = 0;
 			g_inCheck = false;
 			usColor = wt ? colorWhite : colorBlack;
 			enColor = wt ? colorBlack : colorWhite;
@@ -219,7 +215,7 @@ namespace RapShortCs
 				int f = g_board[fr];
 				if ((f & usColor) > 0) f &= 7;
 				else continue;
-				adjMobility += bonMaterial[f];
+				score += bonMaterial[f];
 				switch (f)
 				{
 					case 1:
@@ -262,8 +258,8 @@ namespace RapShortCs
 						GenerateUniMoves(moves, fr, arrDirQueen, 7);
 						break;
 					case 6:
-						adjMobility -= Math.Abs((((n & 7) << 1) - 7) >> 1);
-						adjMobility -= Math.Abs((((n >> 3) << 1) - 7) >> 1);
+						score -= Math.Abs((((n & 7) << 1) - 7) >> 1);
+						score -= Math.Abs((((n >> 3) << 1) - 7) >> 1);
 						GenerateUniMoves(moves, fr, arrDirQueen, 1);
 						int cr = wt ? g_castleRights : g_castleRights >> 2;
 						if ((cr & 1) > 0)
@@ -275,8 +271,8 @@ namespace RapShortCs
 						break;
 				}
 			}
-			adjMobility += moves.Count;
-			adjInsufficient = (pieceM == 0) && (pieceN + (pieceB << 1) < 3);
+			score += moves.Count;
+			insufficient = (pieceM == 0) && (pieceN + (pieceB << 1) < 3);
 			return moves;
 		}
 
@@ -321,13 +317,13 @@ namespace RapShortCs
 			List<int> moves = GenerateAllMoves(whiteTurn, out _, out _);
 			foreach (int m in moves)
 			{
-				if (FormatMove(m) == umo)
+				if (EmoToUmo(m) == umo)
 					return m;
 			}
 			return 0;
 		}
 
-		public void InitializeFromFen(string fen)
+		public void SetFen(string fen)
 		{
 			synStop.SetStop(false);
 			g_lastCastle = colorEmpty;
@@ -447,17 +443,9 @@ namespace RapShortCs
 			}
 			else
 				g_move50++;
-			if ((flags & moveflagPromotion) > 0)
+			if ((flags & maskPromotion) > 0)
 			{
-				int newPiece = piecefr & (~0x7);
-				if ((flags & moveflagPromoteKnight) > 0)
-					newPiece |= pieceKnight;
-				else if ((flags & moveflagPromoteQueen) > 0)
-					newPiece |= pieceQueen;
-				else if ((flags & moveflagPromoteBishop) > 0)
-					newPiece |= pieceBishop;
-				else
-					newPiece |= pieceRook;
+				int newPiece = ((piecefr & (~0x7)) | (flags >> 20));
 				g_board[to] = newPiece;
 				g_hash ^= g_hashBoard[to, newPiece & 0xf];
 			}
@@ -495,7 +483,7 @@ namespace RapShortCs
 				g_board[to - 2] = g_board[to + 1];
 				g_board[to + 1] = colorEmpty;
 			}
-			if ((flags & moveflagPromotion) > 0)
+			if ((flags & maskPromotion) > 0)
 			{
 				int piece = (g_board[to] & (~0x7)) | piecePawn;
 				g_board[fr] = piece;
@@ -516,25 +504,23 @@ namespace RapShortCs
 			return ((g_timeout > 0) && (stopwatch.Elapsed.TotalMilliseconds > g_timeout)) || ((g_depthout > 0) && (g_mainDepth > g_depthout)) || ((g_nodeout > 0) && (g_totalNodes > g_nodeout));
 		}
 
-		int GetScore(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient)
+		int Search(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient,ref int alDe,ref string alPv)
 		{
+			int neDe = 0;
+			string nePv = "";
 			int n = mu.Count;
 			int myMoves = n;
-			int alphaDe = 0;
-			string alphaPv = "";
 			while (n-- > 0)
 			{
 				int cm = mu[n];
+				alDe = 0;
+				alPv = "";
 				if ((++g_totalNodes & 0x1fff) == 0)
-					if ((bsDepth > 0) && (GetStop() || synStop.GetStop()))
-						g_stop = true;
+					if (GetStop() || synStop.GetStop())
+						g_stop = depth > 0;
 				MakeMove(cm);
 				List<int> me = GenerateAllMoves(whiteTurn, out int enScore, out bool enInsufficient);
-				int osScore = usScore - enScore;
-				if (usInsufficient && enInsufficient)
-					osScore = 0;
-				g_depth = 0;
-				g_pv = "";
+				int osScore = usInsufficient && enInsufficient ? 0 : usScore - enScore;
 				if (g_inCheck)
 				{
 					myMoves--;
@@ -543,32 +529,25 @@ namespace RapShortCs
 				else if ((g_move50 > 99) || IsRepetition())
 					osScore = 0;
 				else if (ply < depth)
-					osScore = -GetScore(me, ply + 1, depth, -beta, -alpha, enScore, enInsufficient);
+					osScore = -Search(me, ply + 1, depth, -beta, -alpha, enScore, enInsufficient,ref alDe,ref alPv);
 				UnmakeMove(cm);
 				if (g_stop) return -0xffff;
 				if (alpha < osScore)
 				{
-					string alphaFm = FormatMove(cm);
-					alphaPv = $"{alphaFm} {g_pv}";
+					string alphaFm = EmoToUmo(cm);
+					nePv = $"{alphaFm} {alPv}";
+					neDe = alDe + 1;
 					alpha = osScore;
-					alphaDe = g_depth + 1;
 					if (ply == 1)
 					{
-						if (osScore > 0xf000)
-							g_scoreFm = $"mate {(0xffff - osScore) >> 1}";
-						else if (osScore < -0xf000)
-							g_scoreFm = $"mate {(-0xfffe - osScore) >> 1}";
-						else
-							g_scoreFm = $"cp {osScore}";
-						bsIn = n;
+						string scFm = osScore > 0xf000 ? $"mate {(0xffff - osScore) >> 1}" : ((osScore < -0xf000) ? $"mate {(-0xfffe - osScore) >> 1}" : $"cp {osScore}");
 						bsFm = alphaFm;
-						bsPv = alphaPv;
-						bsDepth = alphaDe;
+						bsPv = nePv;
+						mu.RemoveAt(n);
+						mu.Add(cm);
 						double t = stopwatch.Elapsed.TotalMilliseconds;
-						double nps = 0;
-						if (t > 0)
-							nps = (g_totalNodes / t) * 1000;
-						Console.WriteLine("info currmove " + bsFm + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + Convert.ToInt64(t) + " nps " + Convert.ToInt64(nps) + " depth " + depth + " seldepth " + alphaDe + " score " + g_scoreFm + " pv " + bsPv);
+						double nps = t > 0 ? (g_totalNodes / t) * 1000 : 0;
+						Console.WriteLine( $"info currmove {bsFm}" + " currmovenumber " + n + " nodes " + g_totalNodes + " time " + Convert.ToInt64(t) + " nps " + Convert.ToInt64(nps) + " depth " + g_mainDepth + " seldepth " + neDe + " score " + scFm + " pv " + nePv);
 					}
 				}
 				if (alpha >= beta) break;
@@ -580,8 +559,8 @@ namespace RapShortCs
 					alpha = 0;
 				else alpha = -0xffff + ply;
 			}
-			g_depth = alphaDe;
-			g_pv = alphaPv;
+			alDe = neDe;
+			alPv = nePv;
 			return alpha;
 		}
 
@@ -603,14 +582,11 @@ namespace RapShortCs
 			g_mainDepth = 1;
 			do
 			{
-				os = GetScore(mu, 1, g_mainDepth, -0xffff, 0xffff, usScore, usInsufficient);
-				int m = mu[bsIn];
-				mu.RemoveAt(bsIn);
-				mu.Add(m);
+				int alDe = 0;
+				string alPv = "";
+				os = Search(mu, 1, g_mainDepth, -0xffff, 0xffff, usScore, usInsufficient,ref alDe,ref alPv);
 				double t = stopwatch.Elapsed.TotalMilliseconds;
-				double nps = 0;
-				if (t > 0)
-					nps = (g_totalNodes / t) * 1000;
+				double nps = t > 0 ? (g_totalNodes / t) * 1000 : 0;
 				Console.WriteLine($"info depth {g_mainDepth} nodes {g_totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} {mu.Count}");
 				if (++g_mainDepth > depthLimit)
 					break;
@@ -701,7 +677,7 @@ namespace RapShortCs
 								fen += Uci.tokens[n];
 							}
 						}
-						Chess.InitializeFromFen(fen);
+						Chess.SetFen(fen);
 						lo = Uci.GetIndex("moves", 0);
 						hi = Uci.GetIndex("fen", Uci.tokens.Length);
 						if (lo > 0)
