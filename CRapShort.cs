@@ -101,7 +101,7 @@ namespace RapShortCs
 		readonly int[] bonMaterial = new int[7] { 0, 100, 300, 310, 500, 800, 0xffff };
 		readonly int[] arrDirKinght = { 14, -14, 18, -18, 31, -31, 33, -33 };
 		readonly int[] arrDirBishop = { 15, -15, 17, -17 };
-		readonly int[] arrDirRock = { 1, -1, 16, -16 };
+		readonly int[] arrDirRook = { 1, -1, 16, -16 };
 		readonly int[] arrDirQueen = { 1, -1, 15, -15, 16, -16, 17, -17 };
 		public static Random random = new Random();
 		readonly CUndo[] undoStack = new CUndo[0xfff];
@@ -256,7 +256,7 @@ namespace RapShortCs
 							break;
 						case 4:
 							pieceM++;
-							score += GenerateUniMoves(moves, fr, arrDirRock, 7, enColor);
+							score += GenerateUniMoves(moves, fr, arrDirRook, 7, enColor);
 							break;
 						case 5:
 							pieceM++;
