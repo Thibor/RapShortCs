@@ -542,7 +542,7 @@ namespace RapShortCs
 						g_stop = g_mainDepth > 0;
 				MakeMove(cm);
 				List<int> me = GenerateAllMoves(whiteTurn, out int enScore, out bool enInsufficient);
-				int score = usInsufficient && enInsufficient ? 0 : usScore - enScore;
+				int score = usScore - enScore;
 				if (usInsufficient != enInsufficient)
 					score += usInsufficient ? -400 : 400;
 				if (g_inCheck)
@@ -550,7 +550,7 @@ namespace RapShortCs
 					myMoves--;
 					score = -0xffff;
 				}
-				else if ((g_move50 > 99) || IsRepetition())
+				else if ((g_move50 > 99) || IsRepetition() || (usInsufficient && enInsufficient))
 					score = 0;
 				else if (depth > 1)
 					score = -Search(me, ply + 1, depth - 1, -beta, -alpha, enScore, enInsufficient, ref alDe, ref alPv,out _);
