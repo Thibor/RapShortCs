@@ -433,7 +433,6 @@ namespace RapShortCs
 		List<int> GenerateAllMoves(bool wt, out int score, out bool insufficient)
 		{
 			score = 0;
-			insufficient = false;
 			g_inCheck = false;
 			int usColor = wt ? colorWhite : colorBlack;
 			int enColor = wt ? colorBlack : colorWhite;
@@ -441,7 +440,7 @@ namespace RapShortCs
 			int pieceN = 0;
 			int pieceB = 0;
 			int pieceM = 0;
-			int cp1 = 0;
+			int cp1;
 			int cp2 = 0;
 			int cp3 = 0;
 			int kpx = 0;
