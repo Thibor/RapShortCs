@@ -101,7 +101,7 @@ namespace RapShortCs
 		readonly int[] bonMaterial = new int[7] { 0, 100, 300, 310, 500, 800, 0xffff };
 		readonly int[] arrDirKinght = { 14, -14, 18, -18, 31, -31, 33, -33 };
 		readonly int[] arrDirBishop = { 15, -15, 17, -17 };
-		readonly int[] arrDirRook = { 1, -1, 16, -16 };
+		readonly int[] arrDirRock = { 1, -1, 16, -16 };
 		readonly int[] arrDirQueen = { 1, -1, 15, -15, 16, -16, 17, -17 };
 		public static Random random = new Random();
 		readonly CUndo[] undoStack = new CUndo[0xfff];
@@ -199,104 +199,6 @@ namespace RapShortCs
 				else
 					moves.Insert(0, fr | (to << 8) | flag);
 		}
-
-		List<int> GenerateAllMoves(bool wt, out int score, out bool insufficient)
-		{
-			score = 0;
-			insufficient = false;
-			g_inCheck = false;
-			int usColor = wt ? colorWhite : colorBlack;
-			int enColor = wt ? colorBlack : colorWhite;
-			int kp = 0;
-			int pieceP = 0;
-			int pieceN = 0;
-			int pieceB = 0;
-			int pieceM = 0;
-			int cp1 = 0;
-			int cp2 = 0;
-			int cp3 = 0;
-			List<int> moves = new List<int>(64);
-			for (int x = 0; x < 8; x++)
-			{
-				cp1 = cp2;
-				cp2 = cp3;
-				cp3 = 0;
-				for (int y = 0; y < 8; y++)
-				{
-					int n = (y << 3) | x;
-					int fr = arrField[n];
-					int f = g_board[fr];
-					if ((f & usColor) > 0) f &= 7;
-					else continue;
-					score += bonMaterial[f];
-					switch (f)
-					{
-						case 1:
-							pieceP++;
-							int del = wt ? -16 : 16;
-							int to = fr + del;
-							cp3++;
-							score += wt ? 1 << (7 - y) : 1 << y;
-							if (((g_board[to] & colorEmpty) > 0))
-							{
-								GeneratePawnMoves(moves, fr, to, true, 0);
-								if ((g_board[fr - del - del] == 0) && (g_board[to + del] & colorEmpty) > 0)
-									GeneratePawnMoves(moves, fr, to + del, true, 0);
-							}
-							GeneratePawnAttack(moves, fr, to + 1, enColor);
-							GeneratePawnAttack(moves, fr, to - 1, enColor);
-							break;
-						case 2:
-							pieceN++;
-							score += GenerateUniMoves(moves, fr, arrDirKinght, 1, enColor) << 2;
-							break;
-						case 3:
-							pieceB++;
-							score += GenerateUniMoves(moves, fr, arrDirBishop, 7, enColor) << 1;
-							break;
-						case 4:
-							pieceM++;
-							score += GenerateUniMoves(moves, fr, arrDirRook, 7, enColor);
-							break;
-						case 5:
-							pieceM++;
-							score += GenerateUniMoves(moves, fr, arrDirQueen, 7, enColor);
-							break;
-						case 6:
-							kp = n;
-							GenerateUniMoves(moves, fr, arrDirQueen, 1, enColor);
-							int cr = wt ? g_castleRights : g_castleRights >> 2;
-							if ((cr & 1) > 0)
-								if (((g_board[fr + 1] & colorEmpty) > 0) && ((g_board[fr + 2] & colorEmpty) > 0))
-									GenerateMove(moves, fr, fr + 2, true, moveflagCastleKing);
-							if ((cr & 2) > 0)
-								if (((g_board[fr - 1] & colorEmpty) > 0) && ((g_board[fr - 2] & colorEmpty) > 0) && ((g_board[fr - 3] & colorEmpty) > 0))
-									GenerateMove(moves, fr, fr - 2, true, moveflagCastleQueen);
-							break;
-					}
-				}
-				score -= cp3 * 0x10;
-				if ((cp1 == 0) && (cp2 > 0) && (cp3 == 0))
-					score -= cp2 * 0x10;
-			}
-			if ((cp2 == 0) && (cp3 > 0))
-				score -= cp3 * 0x10;
-			if (pieceB > 1)
-				score += 0x40;
-			int dx = Math.Abs(((kp & 7) << 1) - 7) >> 1;
-			int dy = Math.Abs(((kp >> 3) << 1) - 7) >> 1;
-			int dis = (dx + dy) << 1;
-			int phase = pieceP + pieceN + pieceB + pieceM;
-			if (phase > 10)
-				score += dis;
-			else if (phase < 5)
-			{
-				score -= dis;
-				insufficient = (pieceP + pieceM == 0) && (pieceN + (pieceB << 1) < 3);
-			}
-			return moves;
-		}
-
 		void GeneratePawnAttack(List<int> moves, int fr, int to, int enColor)
 		{
 			if ((g_board[to] & enColor) > 0)
@@ -321,9 +223,8 @@ namespace RapShortCs
 				GenerateMove(moves, fr, to, add, flag);
 		}
 
-		int GenerateUniMoves(List<int> moves, int fr, int[] dir, int count, int enColor)
+		void GenerateUniMoves(List<int> moves, int fr, int[] dir, int count, int enColor,ref int score)
 		{
-			int cm = moves.Count;
 			for (int n = 0; n < dir.Length; n++)
 			{
 				int to = fr;
@@ -332,9 +233,13 @@ namespace RapShortCs
 				{
 					to += dir[n];
 					if ((g_board[to] & colorEmpty) > 0)
+					{
+						score++;
 						GenerateMove(moves, fr, to, true, 0);
+					}
 					else if ((g_board[to] & enColor) > 0)
 					{
+						score += 2;
 						GenerateMove(moves, fr, to, true, 0);
 						break;
 					}
@@ -342,7 +247,6 @@ namespace RapShortCs
 						break;
 				}
 			}
-			return moves.Count - cm;
 		}
 
 		public void SetFen(string fen)
@@ -526,6 +430,99 @@ namespace RapShortCs
 			return ((g_timeout > 0) && (stopwatch.Elapsed.TotalMilliseconds > g_timeout)) || ((g_depthout > 0) && (g_mainDepth > g_depthout)) || ((g_nodeout > 0) && (g_totalNodes > g_nodeout));
 		}
 
+		List<int> GenerateAllMoves(bool wt, out int score, out bool insufficient)
+		{
+			score = 0;
+			insufficient = false;
+			g_inCheck = false;
+			int usColor = wt ? colorWhite : colorBlack;
+			int enColor = wt ? colorBlack : colorWhite;
+			int pieceP = 0;
+			int pieceN = 0;
+			int pieceB = 0;
+			int pieceM = 0;
+			int cp1 = 0;
+			int cp2 = 0;
+			int cp3 = 0;
+			int kpx = 0;
+			int kpy = 0;
+			List<int> moves = new List<int>(64);
+			for (int x = 0; x < 8; x++)
+			{
+				cp1 = cp2;
+				cp2 = cp3;
+				cp3 = 0;
+				for (int y = 0; y < 8; y++)
+				{
+					int n = (y << 3) | x;
+					int fr = arrField[n];
+					int f = g_board[fr];
+					if ((f & usColor) > 0) f &= 7;
+					else continue;
+					score += bonMaterial[f];
+					switch (f)
+					{
+						case 1:
+							pieceP++;
+							int del = wt ? -16 : 16;
+							int to = fr + del;
+							cp3++;
+							score += wt ? 1 << (7 - y) : 1 << y;
+							if (((g_board[to] & colorEmpty) > 0))
+							{
+								GeneratePawnMoves(moves, fr, to, true, 0);
+								if ((g_board[fr - del - del] == 0) && (g_board[to + del] & colorEmpty) > 0)
+									GeneratePawnMoves(moves, fr, to + del, true, 0);
+							}
+							GeneratePawnAttack(moves, fr, to + 1, enColor);
+							GeneratePawnAttack(moves, fr, to - 1, enColor);
+							break;
+						case 2:
+							pieceN++;
+							GenerateUniMoves(moves, fr, arrDirKinght, 1, enColor, ref score);
+							break;
+						case 3:
+							pieceB++;
+							GenerateUniMoves(moves, fr, arrDirBishop, 7, enColor, ref score);
+							break;
+						case 4:
+							pieceM++;
+							GenerateUniMoves(moves, fr, arrDirRock, 7, enColor, ref score);
+							break;
+						case 5:
+							pieceM++;
+							GenerateUniMoves(moves, fr, arrDirQueen, 7, enColor, ref score);
+							break;
+						case 6:
+							kpx = x;
+							kpy = y;
+							GenerateUniMoves(moves, fr, arrDirQueen, 1, enColor, ref score);
+							int cr = wt ? g_castleRights : g_castleRights >> 2;
+							if ((cr & 1) > 0)
+								if (((g_board[fr + 1] & colorEmpty) > 0) && ((g_board[fr + 2] & colorEmpty) > 0))
+									GenerateMove(moves, fr, fr + 2, true, moveflagCastleKing);
+							if ((cr & 2) > 0)
+								if (((g_board[fr - 1] & colorEmpty) > 0) && ((g_board[fr - 2] & colorEmpty) > 0) && ((g_board[fr - 3] & colorEmpty) > 0))
+									GenerateMove(moves, fr, fr - 2, true, moveflagCastleQueen);
+							break;
+					}
+				}
+				score -= cp3 * 0x10;
+				if ((cp1 == 0) && (cp2 > 0) && (cp3 == 0))
+					score -= cp2 * 0x10;
+			}
+			if ((cp2 == 0) && (cp3 > 0))
+				score -= cp3 * 0x10;
+			if (pieceB > 1)
+				score += 0x40;
+			int dx = Math.Abs((kpx << 1) - 7) >> 1;
+			int dy = Math.Abs((kpy << 1) - 7) >> 1;
+			int phase = pieceP + pieceN + pieceB + pieceM;
+			score += (phase - 8) * (dx + dy);
+			insufficient = (pieceP + pieceM == 0) && (pieceN + (pieceB << 1) < 3);
+			return moves;
+		}
+
 		int Search(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient, ref int alDe, ref string alPv,out int myMoves)
 		{
 			int neDe = 0;
@@ -612,7 +609,7 @@ namespace RapShortCs
 					break;
 			} while (!GetStop() && !synStop.GetStop() && (myMoves > 1));
 			string[] ponder = bsPv.Trim().Split(' ');
-			string pm = ponder.Length > 1 ? " ponder " + ponder[1] : "";
+			string pm = ponder.Length > 1 ? $" ponder {ponder[1]}" : "";
 			Console.WriteLine("bestmove " + bsFm + pm);
 		}
 
