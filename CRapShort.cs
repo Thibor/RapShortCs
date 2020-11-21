@@ -682,15 +682,11 @@ namespace RapShortCs
 						if (lo > 0)
 						{
 							if (lo > hi)
-							{
 								hi = Uci.tokens.Length;
-							}
 							for (int n = lo; n < hi; n++)
 							{
 								if (n > lo)
-								{
 									fen += ' ';
-								}
 								fen += Uci.tokens[n];
 							}
 						}
@@ -700,9 +696,7 @@ namespace RapShortCs
 						if (lo > 0)
 						{
 							if (lo > hi)
-							{
 								hi = Uci.tokens.Length;
-							}
 							for (int n = lo; n < hi; n++)
 							{
 								string m = Uci.tokens[n];
