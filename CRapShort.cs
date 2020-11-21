@@ -667,7 +667,7 @@ namespace RapShortCs
 				switch (Uci.command)
 				{
 					case "uci":
-						Console.WriteLine("id name RapShortCs " + version);
+						Console.WriteLine($"id name RapShortCs {version}");
 						Console.WriteLine("id author Thibor Raven");
 						Console.WriteLine("id link https://github.com/Thibor/RapShortCs");
 						Console.WriteLine("uciok");
