@@ -168,6 +168,24 @@ namespace RapShortCs
 
 		string SquToStr(int square)
 		{
+			int x = (square & 0xf) - 4;
+			int y = (square >> 4) - 4;
+			string xs = "abcdefgh";
+			string ys = "87654321";
+			return $"{xs[x]}{ys[y]}";
+		}
+
+		int StrToSqu(string s)
+		{
+			string xs = "abcdefgh";
+			string ys = "87654321";
+			int x = xs.IndexOf(s[0]);
+			int y = ys.IndexOf(s[1]);
+			return ((y + 4) << 4) | (x + 4);
+		}
+
+		/*string SquToStr(int square)
+		{
 			char[] arr = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
 			return arr[(square & 0xf) - 4] + (12 - (square >> 4)).ToString();
 		}
@@ -178,7 +196,7 @@ namespace RapShortCs
 			int x = fl.IndexOf(s[0]);
 			int y = 12 - Int32.Parse(s[1].ToString());
 			return (x + 4) | (y << 4);
-		}
+		}*/
 
 		bool IsRepetition()
 		{
@@ -655,7 +673,7 @@ namespace RapShortCs
 	{
 		static void Main()
 		{
-			string version = "2020-11-01";
+			string version = "2020-12-01";
 			CChess Chess = new CChess();
 			CUci Uci = new CUci();
 
