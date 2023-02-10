@@ -76,10 +76,10 @@ namespace RapShortCs
 		int inTime = 0;
 		int inDepth = 0;
 		int inNodes = 0;
-		int g_castleRights = 0xf;
-		ulong g_hash = 0;
-		int g_passing = 0;
-		public int g_move50 = 0;
+		int castleRights = 0xf;
+		ulong hash = 0;
+		int passing = 0;
+		public int move50 = 0;
 		int g_moveNumber = 0;
 		int g_totalNodes = 0;
 		bool g_inCheck = false;
@@ -88,7 +88,7 @@ namespace RapShortCs
 		int g_nodeout = 0;
 		int g_mainDepth = 1;
 		bool g_stop = false;
-		int g_lastCastle = colorEmpty;
+		int lastCastle = colorEmpty;
 		public int undoIndex = 0;
 		readonly int[] arrField = new int[64];
 		readonly int[] g_board = new int[256];
@@ -96,8 +96,8 @@ namespace RapShortCs
 		readonly int[] boardCheck = new int[256];
 		readonly int[] boardCastle = new int[256];
 		public bool whiteTurn = true;
-		string bsFm = "";
-		string bsPv = "";
+		string bsFm = String.Empty;
+		string bsPv = String.Empty;
 		readonly int[] bonMaterial = new int[7] { 0, 100, 300, 310, 500, 800, 0xffff };
 		readonly int[] arrDirKinght = { 14, -14, 18, -18, 31, -31, 33, -33 };
 		readonly int[] arrDirBishop = { 15, -15, 17, -17 };
@@ -111,7 +111,7 @@ namespace RapShortCs
 
 		public CChess()
 		{
-			g_hash = RAND_32();
+			hash = RAND_32();
 			for (int n = 0; n < undoStack.Length; n++)
 				undoStack[n] = new CUndo();
 			for (int y = 0; y < 8; y++)
@@ -200,8 +200,8 @@ namespace RapShortCs
 
 		bool IsRepetition()
 		{
-			for (int n = undoIndex - 4; n >= undoIndex - g_move50; n -= 2)
-				if (undoStack[n].hash == g_hash)
+			for (int n = undoIndex - 4; n >= undoIndex - move50; n -= 2)
+				if (undoStack[n].hash == hash)
 					return true;
 			return false;
 		}
@@ -209,7 +209,7 @@ namespace RapShortCs
 		void GenerateMove(List<int> moves, int fr, int to, bool add, int flag)
 		{
 			int rank = g_board[to] & 7;
-			if ((rank == pieceKing) || ((boardCheck[to] & g_lastCastle) == g_lastCastle))
+			if ((rank == pieceKing) || ((boardCheck[to] & lastCastle) == lastCastle))
 				g_inCheck = true;
 			else if (add)
 				if ((rank > 0) || ((flag & maskPassPromotion) > 0))
@@ -221,8 +221,8 @@ namespace RapShortCs
 		{
 			if ((g_board[to] & enColor) > 0)
 				GeneratePawnMoves(moves, fr, to, true, 0);
-			else if (to == g_passing)
-				GeneratePawnMoves(moves, fr, g_passing, true, moveflagPassing);
+			else if (to == passing)
+				GeneratePawnMoves(moves, fr, passing, true, moveflagPassing);
 			else if ((g_board[to] & colorEmpty) > 0)
 				GeneratePawnMoves(moves, fr, to, false, 0);
 		}
@@ -241,7 +241,7 @@ namespace RapShortCs
 				GenerateMove(moves, fr, to, add, flag);
 		}
 
-		void GenerateUniMoves(List<int> moves, int fr, int[] dir, int count, int enColor,ref int score)
+		void GenerateUniMoves(List<int> moves, int fr, int[] dir, int count, int enColor, ref int score)
 		{
 			for (int n = 0; n < dir.Length; n++)
 			{
@@ -270,7 +270,7 @@ namespace RapShortCs
 		public void SetFen(string fen)
 		{
 			synStop.SetStop(false);
-			g_lastCastle = colorEmpty;
+			lastCastle = colorEmpty;
 			for (int n = 0; n < 64; n++)
 				g_board[arrField[n]] = colorEmpty;
 			if (fen == "") fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -321,24 +321,24 @@ namespace RapShortCs
 				}
 			}
 			whiteTurn = chunks[1] == "w";
-			g_castleRights = 0;
+			castleRights = 0;
 			if (chunks[2].IndexOf('K') != -1)
-				g_castleRights |= 1;
+				castleRights |= 1;
 			if (chunks[2].IndexOf('Q') != -1)
-				g_castleRights |= 2;
+				castleRights |= 2;
 			if (chunks[2].IndexOf('k') != -1)
-				g_castleRights |= 4;
+				castleRights |= 4;
 			if (chunks[2].IndexOf('q') != -1)
-				g_castleRights |= 8;
-			g_passing = 0;
+				castleRights |= 8;
+			passing = 0;
 			if (chunks[3].IndexOf('-') == -1)
-				g_passing = StrToSqu(chunks[3]);
-			g_move50 = 0;
+				passing = StrToSqu(chunks[3]);
+			move50 = 0;
 			g_moveNumber = Int32.Parse(chunks[5]);
 			if (g_moveNumber > 0) g_moveNumber--;
 			g_moveNumber *= 2;
 			if (!whiteTurn) g_moveNumber++;
-			undoIndex = g_move50;
+			undoIndex = move50;
 		}
 
 		public void MakeMove(int move)
@@ -349,16 +349,16 @@ namespace RapShortCs
 			int piecefr = g_board[fr];
 			int piece = piecefr & 0xf;
 			int captured = g_board[to];
-			g_lastCastle = colorEmpty;
+			lastCastle = colorEmpty;
 			if ((flags & moveflagCastleKing) > 0)
 			{
-				g_lastCastle = moveflagCastleKing | (piecefr & maskColor);
+				lastCastle = moveflagCastleKing | (piecefr & maskColor);
 				g_board[to - 1] = g_board[to + 1];
 				g_board[to + 1] = colorEmpty;
 			}
 			else if ((flags & moveflagCastleQueen) > 0)
 			{
-				g_lastCastle = moveflagCastleQueen | (piecefr & maskColor);
+				lastCastle = moveflagCastleQueen | (piecefr & maskColor);
 				g_board[to + 1] = g_board[to - 2];
 				g_board[to - 2] = colorEmpty;
 			}
@@ -370,36 +370,36 @@ namespace RapShortCs
 			}
 			ref CUndo undo = ref undoStack[undoIndex++];
 			undo.captured = captured;
-			undo.hash = g_hash;
-			undo.passing = g_passing;
-			undo.castle = g_castleRights;
-			undo.move50 = g_move50;
-			undo.lastCastle = g_lastCastle;
-			g_hash ^= g_hashBoard[fr, piece];
-			g_passing = 0;
+			undo.hash = hash;
+			undo.passing = passing;
+			undo.castle = castleRights;
+			undo.move50 = move50;
+			undo.lastCastle = lastCastle;
+			hash ^= g_hashBoard[fr, piece];
+			passing = 0;
 			if (captured != colorEmpty)
-				g_move50 = 0;
+				move50 = 0;
 			else if ((piece & 7) == piecePawn)
 			{
-				if (to == (fr + 32)) g_passing = (fr + 16);
-				if (to == (fr - 32)) g_passing = (fr - 16);
-				g_move50 = 0;
+				if (to == (fr + 32)) passing = (fr + 16);
+				if (to == (fr - 32)) passing = (fr - 16);
+				move50 = 0;
 			}
 			else
-				g_move50++;
+				move50++;
 			if ((flags & maskPromotion) > 0)
 			{
 				int newPiece = ((piecefr & (~0x7)) | (flags >> 20));
 				g_board[to] = newPiece;
-				g_hash ^= g_hashBoard[to, newPiece & 0xf];
+				hash ^= g_hashBoard[to, newPiece & 0xf];
 			}
 			else
 			{
 				g_board[to] = g_board[fr];
-				g_hash ^= g_hashBoard[to, piece];
+				hash ^= g_hashBoard[to, piece];
 			}
 			g_board[fr] = colorEmpty;
-			g_castleRights &= boardCastle[fr] & boardCastle[to];
+			castleRights &= boardCastle[fr] & boardCastle[to];
 			whiteTurn ^= true;
 			g_moveNumber++;
 		}
@@ -411,11 +411,11 @@ namespace RapShortCs
 			int flags = move & 0xFF0000;
 			int capi = to;
 			CUndo undo = undoStack[--undoIndex];
-			g_passing = undo.passing;
-			g_castleRights = undo.castle;
-			g_move50 = undo.move50;
-			g_lastCastle = undo.lastCastle;
-			g_hash = undo.hash;
+			passing = undo.passing;
+			castleRights = undo.castle;
+			move50 = undo.move50;
+			lastCastle = undo.lastCastle;
+			hash = undo.hash;
 			int captured = undo.captured;
 			if ((flags & moveflagCastleKing) > 0)
 			{
@@ -514,7 +514,7 @@ namespace RapShortCs
 							kpx = x;
 							kpy = y;
 							GenerateUniMoves(moves, fr, arrDirQueen, 1, enColor, ref score);
-							int cr = wt ? g_castleRights : g_castleRights >> 2;
+							int cr = wt ? castleRights : castleRights >> 2;
 							if ((cr & 1) > 0)
 								if (((g_board[fr + 1] & colorEmpty) > 0) && ((g_board[fr + 2] & colorEmpty) > 0))
 									GenerateMove(moves, fr, fr + 2, true, moveflagCastleKing);
@@ -540,7 +540,7 @@ namespace RapShortCs
 			return moves;
 		}
 
-		int Search(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient, ref int alDe, ref string alPv,out int myMoves)
+		int Search(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient, ref int alDe, ref string alPv, out int myMoves)
 		{
 			int neDe = 0;
 			string nePv = "";
@@ -564,10 +564,10 @@ namespace RapShortCs
 					myMoves--;
 					score = -0xffff;
 				}
-				else if ((g_move50 > 99) || IsRepetition() || (usInsufficient && enInsufficient))
+				else if ((move50 > 99) || IsRepetition() || (usInsufficient && enInsufficient))
 					score = 0;
 				else if (depth > 1)
-					score = -Search(me, ply + 1, depth - 1, -beta, -alpha, enScore, enInsufficient, ref alDe, ref alPv,out _);
+					score = -Search(me, ply + 1, depth - 1, -beta, -alpha, enScore, enInsufficient, ref alDe, ref alPv, out _);
 				UnmakeMove(cm);
 				if (g_stop) return -0xffff;
 				if (score >= beta)
@@ -615,7 +615,7 @@ namespace RapShortCs
 			{
 				int alDe = 0;
 				string alPv = "";
-				int score = Search(mu, 1, g_mainDepth, -0xffff, 0xffff, usScore, usInsufficient, ref alDe, ref alPv,out myMoves);
+				int score = Search(mu, 1, g_mainDepth, -0xffff, 0xffff, usScore, usInsufficient, ref alDe, ref alPv, out myMoves);
 				double t = stopwatch.Elapsed.TotalMilliseconds;
 				double nps = t > 0 ? (g_totalNodes / t) * 1000 : 0;
 				Console.WriteLine($"info depth {g_mainDepth} nodes {g_totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} {mu.Count}");
@@ -674,14 +674,14 @@ namespace RapShortCs
 		static void Main()
 		{
 			string version = "2020-12-01";
-			CChess Chess = new CChess();
-			CUci Uci = new CUci();
+			CChess chess = new CChess();
+			CUci uci = new CUci();
 
 			while (true)
 			{
 				string msg = Console.ReadLine();
-				Uci.SetMsg(msg);
-				switch (Uci.command)
+				uci.SetMsg(msg);
+				switch (uci.command)
 				{
 					case "uci":
 						Console.WriteLine($"id name RapShortCs {version}");
@@ -694,56 +694,57 @@ namespace RapShortCs
 						break;
 					case "position":
 						string fen = "";
-						int lo = Uci.GetIndex("fen", 0);
-						int hi = Uci.GetIndex("moves", Uci.tokens.Length);
+						int lo = uci.GetIndex("fen", 0);
+						int hi = uci.GetIndex("moves", uci.tokens.Length);
 						if (lo > 0)
 						{
 							if (lo > hi)
-								hi = Uci.tokens.Length;
+								hi = uci.tokens.Length;
 							for (int n = lo; n < hi; n++)
 							{
 								if (n > lo)
 									fen += ' ';
-								fen += Uci.tokens[n];
+								fen += uci.tokens[n];
 							}
 						}
-						Chess.SetFen(fen);
-						lo = Uci.GetIndex("moves", 0);
-						hi = Uci.GetIndex("fen", Uci.tokens.Length);
+						chess.SetFen(fen);
+						lo = uci.GetIndex("moves", 0);
+						hi = uci.GetIndex("fen", uci.tokens.Length);
 						if (lo > 0)
 						{
 							if (lo > hi)
-								hi = Uci.tokens.Length;
+								hi = uci.tokens.Length;
 							for (int n = lo; n < hi; n++)
 							{
-								string m = Uci.tokens[n];
-								Chess.MakeMove(Chess.UmoToEmo(m));
-								if (Chess.g_move50 == 0)
-									Chess.undoIndex = 0;
+								string m = uci.tokens[n];
+								chess.MakeMove(chess.UmoToEmo(m));
+								if (chess.move50 == 0)
+									chess.undoIndex = 0;
 							}
 						}
 						break;
 					case "go":
-						Chess.stopwatch.Restart();
-						int time = Uci.GetInt("movetime", 0);
-						int depth = Uci.GetInt("depth", 0);
-						int node = Uci.GetInt("nodes", 0);
-						int infinite = Uci.GetIndex("infinite", 0);
+						chess.stopwatch.Restart();
+						int time = uci.GetInt("movetime", 0);
+						int depth = uci.GetInt("depth", 0);
+						int node = uci.GetInt("nodes", 0);
+						int infinite = uci.GetIndex("infinite", 0);
 						if ((time == 0) && (depth == 0) && (node == 0) && (infinite == 0))
 						{
-							time = Chess.whiteTurn ? Uci.GetInt("wtime", 0) : Uci.GetInt("btime", 0);
-							double mg = Uci.GetInt("movestogo", 0x40);
-							time = Convert.ToInt32(time / mg);
+							double ct = chess.whiteTurn ? uci.GetInt("wtime", 0) : uci.GetInt("btime", 0);
+							double inc = chess.whiteTurn ? uci.GetInt("winc", 0) : uci.GetInt("binc", 0);
+							double mg = uci.GetInt("movestogo", 32);
+							time = Convert.ToInt32((ct - 1000 + inc * mg) / mg);
 							if (time < 1)
 								time = 1;
 						}
-						Chess.StartThread(depth, time, node);
+						chess.StartThread(depth, time, node);
 						break;
 					case "stop":
-						Chess.synStop.SetStop(true);
+						chess.synStop.SetStop(true);
 						break;
 					case "quit":
-						Chess.synStop.SetStop(true);
+						chess.synStop.SetStop(true);
 						return;
 				}
 
