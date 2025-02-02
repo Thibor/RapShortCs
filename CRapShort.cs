@@ -231,7 +231,7 @@ namespace RapShortCs
 
 		bool IsRepetition()
 		{
-			for (int n = undoIndex - 4; n >= undoIndex - move50; n -= 2)
+			for (int n = undoIndex - 2; n >= undoIndex - move50; n -= 2)
 				if (undoStack[n].hash == hash)
 					return true;
 			return false;
@@ -566,17 +566,18 @@ namespace RapShortCs
 			else if (add)
 				if ((rank > 0) || ((flag & maskPassPromotion) > 0))
 					moves.Add(fr | (to << 8) | flag);
-				else
-					moves.Insert(0, fr | (to << 8) | flag);
+				else moves.Insert(0, fr | (to << 8) | flag);
 		}
 
 		int Search(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient, ref int alDe, ref string alPv, out int myMoves)
 		{
-			int neDe = 0;
-			string nePv = "";
+            int neDe = 0;
 			int n = mu.Count;
-			myMoves = n;
-			while (n-- > 0)
+            string nePv = String.Empty;
+            myMoves = n;
+            if (g_stop)
+                return alpha;
+            while (n-- > 0)
 			{
 				int cm = mu[n];
 				alDe = 0;
@@ -599,7 +600,6 @@ namespace RapShortCs
 				else if (depth > 1)
 					score = -Search(me, ply + 1, depth - 1, -beta, -alpha, enScore, enInsufficient, ref alDe, ref alPv, out _);
 				UnmakeMove(cm);
-				if (g_stop) return -0xffff;
 				if (score >= beta)
 					return beta;
 				if (score > alpha)
