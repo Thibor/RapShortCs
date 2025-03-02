@@ -569,15 +569,14 @@ namespace RapShortCs
 				else moves.Insert(0, fr | (to << 8) | flag);
 		}
 
-		int Search(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient, ref int alDe, ref string alPv, out int myMoves)
+		int Search(List<int> mu, int ply, int depth, int alpha, int beta, int usScore, bool usInsufficient, ref int alDe, ref string alPv, out int legalMoves)
 		{
             int neDe = 0;
-			int n = mu.Count;
             string nePv = String.Empty;
-            myMoves = n;
+            legalMoves = 0;
             if (g_stop)
-                return alpha;
-            while (n-- > 0)
+                return -0xffff;
+            for(int n= 0;n<mu.Count;n++)
 			{
 				int cm = mu[n];
 				alDe = 0;
@@ -591,14 +590,15 @@ namespace RapShortCs
 				if (usInsufficient != enInsufficient)
 					score += usInsufficient ? -400 : 400;
 				if (inCheck)
-				{
-					myMoves--;
 					score = -0xffff;
+				else
+				{
+					legalMoves++;
+					if ((move50 > 99) || IsRepetition() || (usInsufficient && enInsufficient))
+						score = 0;
+					else if (depth > 1)
+						score = -Search(me, ply + 1, depth - 1, -beta, -alpha, enScore, enInsufficient, ref alDe, ref alPv, out _);
 				}
-				else if ((move50 > 99) || IsRepetition() || (usInsufficient && enInsufficient))
-					score = 0;
-				else if (depth > 1)
-					score = -Search(me, ply + 1, depth - 1, -beta, -alpha, enScore, enInsufficient, ref alDe, ref alPv, out _);
 				UnmakeMove(cm);
 				if (score >= beta)
 					return beta;
@@ -613,8 +613,11 @@ namespace RapShortCs
 						string scFm = score > 0xf000 ? $"mate {(0xffff - score) >> 1}" : ((score < -0xf000) ? $"mate {(-0xfffe - score) >> 1}" : $"cp {score}");
 						bsFm = alphaFm;
 						bsPv = nePv;
-						mu.RemoveAt(n);
-						mu.Add(cm);
+						if (n > 0)
+						{
+							mu.RemoveAt(n);
+							mu.Insert(0, cm);
+						}
 						double t = stopwatch.Elapsed.TotalMilliseconds;
 						double nps = t > 0 ? (totalNodes / t) * 1000 : 0;
 						Console.WriteLine($"info currmove {bsFm} currmovenumber {mu.Count - n} nodes {totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} depth {mainDepth} seldepth {neDe} score {scFm} pv {nePv}");
@@ -623,7 +626,7 @@ namespace RapShortCs
 			}
 			alDe = neDe;
 			alPv = nePv;
-			if (myMoves == 0)
+			if (legalMoves == 0)
 			{
 				GenerateAllMoves(!whiteTurn, out _, out _);
 				return inCheck ? -0xffff + ply : 0;
@@ -640,12 +643,12 @@ namespace RapShortCs
 			g_timeout = time;
 			g_depthout = depth;
 			g_nodeout = nodes;
-			mainDepth = 1;
+			int legalMoves = 0;
 			do
 			{
 				int alDe = 0;
 				string alPv = "";
-				int score = Search(mu, 1, mainDepth, -0xffff, 0xffff, usScore, usInsufficient, ref alDe, ref alPv, out myMoves);
+				int score = Search(mu, 1, mainDepth, -0xffff, 0xffff, usScore, usInsufficient, ref alDe, ref alPv, out legalMoves);
 				double t = stopwatch.Elapsed.TotalMilliseconds;
 				double nps = t > 0 ? (totalNodes / t) * 1000 : 0;
 				Console.WriteLine($"info depth {mainDepth} nodes {totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)}");
@@ -654,7 +657,7 @@ namespace RapShortCs
 					break;
 				if ((score < -0xf000) || (score > 0xf000))
 					break;
-			} while (!GetStop() && !synStop.GetStop() && (myMoves > 1));
+			} while (!GetStop() && !synStop.GetStop() && (legalMoves > 1));
 			string[] ponder = bsPv.Trim().Split();
 			string pm = ponder.Length > 1 ? $" ponder {ponder[1]}" : string.Empty;
 			Console.WriteLine("bestmove " + bsFm + pm);
