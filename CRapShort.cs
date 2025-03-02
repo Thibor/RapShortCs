@@ -618,12 +618,11 @@ namespace RapShortCs
                         if (n > 0)
                         {
                             mu.RemoveAt(n);
-                            //mu.Add(cm);
                             mu.Insert(0, cm);
                         }
                         double t = stopwatch.Elapsed.TotalMilliseconds;
                         double nps = t > 0 ? (totalNodes / t) * 1000 : 0;
-                        Console.WriteLine($"info currmove {bsFm} currmovenumber {mu.Count - n} nodes {totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} depth {mainDepth} seldepth {neDe} score {scFm} pv {nePv}");
+                        Console.WriteLine($"info currmove {bsFm} currmovenumber {n+1} nodes {totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} depth {mainDepth} seldepth {neDe} score {scFm} pv {nePv}");
                     }
                 }
             }
