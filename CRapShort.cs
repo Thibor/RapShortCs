@@ -70,7 +70,7 @@ namespace RapShortCs
             }
             else
             {
-                tokens = msg.Trim().Split(' ');
+                tokens = msg.Trim().Split();
                 command = tokens[0];
             }
         }
@@ -98,7 +98,7 @@ namespace RapShortCs
         const int pieceKing = 0x06;
         const int colorBlack = 0x08;
         const int colorWhite = 0x10;
-        const int colorEmpty = 0x20;
+        const int colorEmpty = 0;
         const int moveflagPassing = 0x02 << 16;
         public const int moveflagCastleKing = 0x04 << 16;
         public const int moveflagCastleQueen = 0x08 << 16;
@@ -118,7 +118,7 @@ namespace RapShortCs
         int inNodes = 0;
         int castleRights = 0xf;
         ulong hash = 0;
-        int passing = 0;
+        int passing = 65;
         public int move50 = 0;
         int halfMove = 0;
         int totalNodes = 0;
@@ -137,7 +137,8 @@ namespace RapShortCs
         public bool whiteTurn = true;
         string bsFm = String.Empty;
         string bsPv = String.Empty;
-        readonly int[] bonMaterial = new int[7] { 0, 100, 340, 350, 525, 800, 0xffff };
+        readonly int[] bonMaterial = new int[7] { 0, 100, 320, 330, 500, 900, 0 };
+        readonly int[] bonInsufficient = new int[7] { 0, 3, 1, 2, 3, 3, 0 };
         readonly D2[] arrDirKinght = { new D2(-2, -1), new D2(-2, 1), new D2(2, -1), new D2(2, 1), new D2(-1, -2), new D2(-1, 2), new D2(1, -2), new D2(1, 2) };
         readonly D2[] arrDirBishop = { new D2(-1, -1), new D2(-1, 1), new D2(1, -1), new D2(1, 1) };
         readonly D2[] arrDirRook = { new D2(-1, 0), new D2(1, 0), new D2(0, -1), new D2(0, 1) };
@@ -155,7 +156,7 @@ namespace RapShortCs
             {
                 boardCastle[n] = 15;
                 boardCheck[n] = 0;
-                board[n] = 0;
+                board[n] = colorEmpty;
                 for (int p = 0; p < 16; p++)
                     hashBoard[n, p] = RAND_32();
             }
@@ -252,7 +253,7 @@ namespace RapShortCs
         {
             if (to == passing)
                 GenerateMove(moves, fr, to, moveflagPassing, true);
-            else if ((board[to] & colorEmpty) > 0)
+            else if (board[to] == colorEmpty)
                 GenerateMove(moves, fr, to, 0, false);
             else if ((board[to] & enColor) > 0)
                 GeneratePawnMoves(moves, fr, to, 0, true);
@@ -288,7 +289,7 @@ namespace RapShortCs
                     if (!GetBoard(dx, dy, out int sq))
                         break;
                     int to = dy * 8 + dx;
-                    if ((sq & colorEmpty) > 0)
+                    if (sq == colorEmpty)
                     {
                         score++;
                         GenerateMove(moves, fr, to, 0, true);
@@ -368,7 +369,7 @@ namespace RapShortCs
                 castleRights |= 4;
             if (chunks[2].IndexOf('q') != -1)
                 castleRights |= 8;
-            passing = 0;
+            passing = 65;
             if (chunks[3].IndexOf('-') == -1)
                 passing = StrToSqu(chunks[3]);
             move50 = 0;
@@ -411,7 +412,7 @@ namespace RapShortCs
             }
             undo.captured = captured;
             hash ^= hashBoard[fr, piece];
-            passing = -1;
+            passing = 65;
             if ((captured & 0xf) > 0)
                 move50 = 0;
             else if ((piece & 7) == piecePawn)
@@ -482,34 +483,31 @@ namespace RapShortCs
             inCheck = false;
             usColor = wt ? colorWhite : colorBlack;
             enColor = wt ? colorBlack : colorWhite;
-            int pieceP = 0;
-            int pieceN = 0;
-            int pieceB = 0;
-            int pieceM = 0;
-            int kpx = 0;
-            int kpy = 0;
+            int bonIn = 0;
+            int[] countP = new int[7];
             List<int> moves = new List<int>(64);
             for (int x = 0; x < 8; x++)
             {
                 for (int y = 0; y < 8; y++)
                 {
                     int fr = (y << 3) | x;
-                    int f = board[fr];
-                    if ((f & usColor) > 0) f &= 7;
+                    int sq = board[fr];
+                    if ((sq & usColor) > 0) sq &= 7;
                     else continue;
-                    score += bonMaterial[f];
-                    switch (f)
+                    score += bonMaterial[sq];
+                    bonIn += bonInsufficient[sq];
+                    countP[sq]++;
+                    switch (sq)
                     {
                         case 1:
-                            pieceP++;
                             int del = wt ? -1 : 1;
                             int to = fr + del * 8;
                             score += wt ? 1 << (7 - y) : 1 << y;
-                            if (((board[to] & colorEmpty) > 0))
+                            if (board[to] == colorEmpty)
                             {
                                 GeneratePawnMoves(moves, fr, to, 0, true);
                                 int d = wt ? 6 : 1;
-                                if ((y == d) && (board[fr + del * 16] & colorEmpty) > 0)
+                                if ((y == d) && (board[fr + del * 16] == colorEmpty))
                                     GeneratePawnMoves(moves, fr, fr + del * 16, 0, true);
                             }
                             if (GetBoard(x - 1, y + del, out _))
@@ -518,43 +516,36 @@ namespace RapShortCs
                                 GeneratePawnAttack(moves, fr, to + 1);
                             break;
                         case 2:
-                            pieceN++;
                             GenerateUniMoves(moves, x, y, arrDirKinght, 1, ref score);
                             break;
                         case 3:
-                            pieceB++;
                             GenerateUniMoves(moves, x, y, arrDirBishop, 7, ref score);
                             break;
                         case 4:
-                            pieceM++;
                             GenerateUniMoves(moves, x, y, arrDirRook, 7, ref score);
                             break;
                         case 5:
-                            pieceM++;
                             GenerateUniMoves(moves, x, y, arrDirQueen, 7, ref score);
                             break;
                         case 6:
-                            kpx = x;
-                            kpy = y;
                             GenerateUniMoves(moves, x, y, arrDirQueen, 1, ref score);
                             int cr = wt ? castleRights : castleRights >> 2;
                             if ((cr & 1) > 0)
-                                if (((board[fr + 1] & colorEmpty) > 0) && ((board[fr + 2] & colorEmpty) > 0))
+                                if ((board[fr + 1] == colorEmpty) && (board[fr + 2] == colorEmpty))
                                     GenerateMove(moves, fr, fr + 2, moveflagCastleKing, true);
                             if ((cr & 2) > 0)
-                                if (((board[fr - 1] & colorEmpty) > 0) && ((board[fr - 2] & colorEmpty) > 0) && ((board[fr - 3] & colorEmpty) > 0))
+                                if ((board[fr - 1] == colorEmpty) && (board[fr - 2] == colorEmpty) && (board[fr - 3] == colorEmpty))
                                     GenerateMove(moves, fr, fr - 2, moveflagCastleQueen, true);
                             break;
                     }
                 }
             }
-            if (pieceB > 1)
+            if (countP[3] > 1)
                 score += 0x40;
-            int dx = Math.Abs((kpx << 1) - 7) >> 1;
-            int dy = Math.Abs((kpy << 1) - 7) >> 1;
-            int phase = pieceP + pieceN + pieceB + pieceM;
-            score += (phase - 8) * (dx + dy);
-            insufficient = (pieceP + pieceM == 0) && (pieceN + (pieceB << 1) < 3);
+            score += moves.Count;
+            insufficient = bonIn < 3;
+            if (insufficient)
+                score -= 0x40;
             return moves;
         }
 
@@ -577,20 +568,17 @@ namespace RapShortCs
             string nePv = String.Empty;
             myMoves = 0;
             if (g_stop)
-                return alpha;
+                return -0xffff;
             for (int n = 0; n < mu.Count; n++)
             {
                 int cm = mu[n];
                 alDe = 0;
                 alPv = string.Empty;
                 if ((++totalNodes & 0x1fff) == 0)
-                    if (GetStop() || synStop.GetStop())
-                        g_stop = mainDepth > 0;
+                    g_stop = (GetStop() || synStop.GetStop());
                 MakeMove(cm);
                 List<int> me = GenerateAllMoves(whiteTurn, out int enScore, out bool enInsufficient);
                 int score = usScore - enScore;
-                if (usInsufficient != enInsufficient)
-                    score += usInsufficient ? -400 : 400;
                 if (inCheck)
                     score = -0xffff;
                 else
@@ -622,7 +610,7 @@ namespace RapShortCs
                         }
                         double t = stopwatch.Elapsed.TotalMilliseconds;
                         double nps = t > 0 ? (totalNodes / t) * 1000 : 0;
-                        Console.WriteLine($"info currmove {bsFm} currmovenumber {n+1} nodes {totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} depth {mainDepth} seldepth {neDe} score {scFm} pv {nePv}");
+                        Console.WriteLine($"info currmove {bsFm} currmovenumber {n + 1} nodes {totalNodes} time {Convert.ToInt64(t)} nps {Convert.ToInt64(nps)} depth {mainDepth} seldepth {neDe} score {scFm} pv {nePv}");
                     }
                 }
             }
@@ -708,10 +696,11 @@ namespace RapShortCs
     {
         static void Main()
         {
+            string name = "RapShortCs";
             string version = "2023-02-21";
+            Console.WriteLine($"{name} {version}");
             CChess chess = new CChess();
             CUci uci = new CUci();
-
             while (true)
             {
                 string msg = Console.ReadLine();
@@ -719,9 +708,7 @@ namespace RapShortCs
                 switch (uci.command)
                 {
                     case "uci":
-                        Console.WriteLine($"id name RapShortCs {version}");
-                        Console.WriteLine("id author Thibor Raven");
-                        Console.WriteLine("id link https://github.com/Thibor/RapShortCs");
+                        Console.WriteLine($"id name {name}");
                         Console.WriteLine("uciok");
                         break;
                     case "isready":
